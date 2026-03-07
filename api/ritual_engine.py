@@ -214,13 +214,14 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2, exclude_urls: list = None)
 
 
 def get_past_notion_data(limit: int = 50) -> tuple[str, list]:
-    """노션 데이터베이스에서 최근 발행된 주제(Title)와 참고 링크 목록을 가져옵니다."""
+    """노션 데이터베이스에서 최근 발행된 주제(Title) 내의 [핵심 주제]와 참고 링크 목록을 가져옵니다."""
     logging.info("노션 과거 발행 이력 조회 시작...")
     if not notion_client or not NOTION_DATABASE_ID:
         return "노션 설정이 없어 과거 이력을 조회할 수 없습니다.", []
         
-    topics = []
+    banned_topics = []
     past_urls = []
+    import re
     try:
         # 최근 생성일 기준으로 정렬하여 가져오기
         response = notion_client.databases.query(
@@ -233,11 +234,16 @@ def get_past_notion_data(limit: int = 50) -> tuple[str, list]:
         for page in response.get("results", []):
             props = page.get("properties", {})
             
-            # 주제 추출
+            # 주제 추출: '[차이나맥싱] 어쩌구저쩌구' 에서 '차이나맥싱'만 추출
             topic_prop = props.get("주제", {})
             title_list = topic_prop.get("title", [])
             if title_list:
-                topics.append(title_list[0].get("plain_text", ""))
+                full_title = title_list[0].get("plain_text", "")
+                match = re.search(r'\[([^\]]+)\]', full_title)
+                if match:
+                    banned_topics.append(match.group(1).strip())
+                else:
+                    banned_topics.append(full_title)
                 
             # 참고 링크 추출
             links_prop = props.get("참고 링크", {})
@@ -248,12 +254,12 @@ def get_past_notion_data(limit: int = 50) -> tuple[str, list]:
                 elif rt.get("text", {}).get("link") and rt["text"]["link"].get("url"):
                     past_urls.append(rt["text"]["link"]["url"].split("?")[0].split("#")[0].strip('/'))
                 
-        logging.info(f"과거 이력 {len(topics)}건 및 URL {len(past_urls)}건 조회 완료.")
+        logging.info(f"과거 이력(금지어) {len(banned_topics)}건 및 URL {len(past_urls)}건 조회 완료.")
     except Exception as e:
         logging.error(f"노션 조회 중 오류 발생: {e}")
         
-    topics_text = ", ".join(topics) if topics else "최근 발행된 주제가 없습니다."
-    return topics_text, past_urls
+    banned_topics_text = ", ".join(set(banned_topics)) if banned_topics else "최근 발행된 주제가 없습니다."
+    return banned_topics_text, past_urls
 
 
 # ---------------------------------------------------------------------------
@@ -288,10 +294,12 @@ def generate_editorial_content(trend_data: str, past_topics: str, brand_identity
 - 프리미엄 소스의 철학적 인사이트와 구글 검색으로 확인된 실제 사례를 매끄럽게 결합하여 최고의 웰니스 아티클을 작성하십시오.
 
 [주의 사항]
-- **[매우 중요: 중복 절대 금지]** 최근에 이미 발행된 다음 주제들과 **유사한 주제나 핵심 키워드(Core Topic)는 절대 다시 다루지 마십시오.** 단어만 바꾸거나 앵글만 비트는 것도 허용하지 않습니다. 아예 소재(트렌드 아이템) 자체가 완전히 다른 새로운 트렌드를 위 기사들 중에서 골라야 합니다.
-<past_topics>
+- **[매우 중요: 중복 및 시스템 환각 절대 금지]**
+  아래의 <banned_core_topics> 목록은 최근에 이미 발행된 트렌드들입니다. **이 목록에 있는 어떤 주제나 이와 매우 유사한 개념(예: 동양의학, 차이나맥싱 등)을 어떠한 이유로든 절대로 생성해서는 안 됩니다. 만약 이 금지어 목록 중 하나를 핵심 주제로 선정할 경우 치명적인 시스템 실패로 간주됩니다.** 
+  반드시 전혀 다른 카테고리의 새롭고 신선한 웰니스 트렌드를 구글 검색을 통해 발굴하십시오.
+<banned_core_topics>
 {past_topics}
-</past_topics>
+</banned_core_topics>
 
 이 모든 정보와 검색결과를 바탕으로, 위시 리추얼 채널에 발행할 3가지 포맷(kakao_teaser, web_article, visual_prompt)과, 당신이 실제로 활용한 최고급 소스+구글검색 URL들을 reference_links 필드에 정리하여 생성하십시오.
 """
