@@ -34,9 +34,15 @@ notion_client = Client(auth=NOTION_TOKEN) if NOTION_TOKEN else None
 # ---------------------------------------------------------------------------
 # 1. Pydantic 스키마 정의 (LLM 출력 강제화)
 # ---------------------------------------------------------------------------
+class ReferenceLink(BaseModel):
+    url: str = Field(description="실제로 참고하거나 영감을 얻은 기사의 원문 URL")
+    comment: str = Field(description="이 기사의 어떤 내용을 아티클 작성에 활용했는지 한 줄 요약")
+
+
 class EditorialContent(BaseModel):
     kakao_teaser: str = Field(description="카카오톡 프리뷰, 350자 이내, 잡지 커버의 메인 헤드라인처럼 감각적이고 호기심을 유발하는 문구.")
     web_article: str = Field(description="웹사이트 저널, 전문 에디터가 집필한 깊이 있는 아티클. 마크다운 형식. 반드시 카카오톡(kakao_teaser)에서 던진 화두나 후킹 포인트를 본문 서두에서 즉각적으로 받아 설명하고 완전히 해소해야 합니다.")
+    reference_links: List[ReferenceLink] = Field(description="본문 작성 시 실제로 인사이트를 얻거나 인용한 핵심 참고 링크 목록과 그 이유.")
     visual_prompt: str = Field(description="화보 이미지 프롬프트 (영어), 하이엔드 매거진 스타일(35mm 렌즈, 자연광, 미니멀리즘 등).")
 
 
@@ -183,8 +189,8 @@ def generate_editorial_content(trend_data: str, past_topics: str, brand_identity
     return result_dict
 
 
-def upload_to_notion(content_dict: Dict[str, str], topic_title: str, source_links: str = ""):
-    """생성된 콘텐츠와 참고 링크를 노션 데이터베이스에 적재합니다."""
+def upload_to_notion(content_dict: Dict[str, Any], topic_title: str):
+    """생성된 콘텐츠와 AI가 직접 필터링한 참고 링크를 노션 데이터베이스에 적재합니다."""
     logging.info("Notion 대시보드 적재 시작...")
     
     if not notion_client or not NOTION_DATABASE_ID:
@@ -199,18 +205,22 @@ def upload_to_notion(content_dict: Dict[str, str], topic_title: str, source_link
     # 한국 시간 기준(KST, UTC+9)임을 명시하기 위해 +09:00 추가
     target_date_str = next_tuesday.replace(hour=8, minute=0, second=0, microsecond=0).isoformat() + "+09:00"
     
-    # URL 텍스트를 파싱하여 클릭 가능한 노션 rich_text 링크 객체로 변환
+    # AI가 선별한 레퍼런스 링크를 노션 rich_text 링크 객체로 변환
+    reference_links = content_dict.get("reference_links", [])
     rich_text_links = []
-    for link in source_links.split('\n'):
-        link = link.strip()
-        if link.startswith("http"):
-            rich_text_links.append({
-                "type": "text",
-                "text": {
-                    "content": link + "\n",
-                    "link": {"url": link}
-                }
-            })
+    
+    if isinstance(reference_links, list):
+        for ref in reference_links:
+            url = ref.get("url", "").strip()
+            comment = ref.get("comment", "").strip()
+            if url:
+                rich_text_links.append({
+                    "type": "text",
+                    "text": {
+                        "content": f"[{comment}] {url}\n",
+                        "link": {"url": url}
+                    }
+                })
     
     if not rich_text_links:
         rich_text_links = [{"text": {"content": "참고 링크 없음"}}]
@@ -303,7 +313,7 @@ def main():
         # 5. 노션 대시보드 적재
         # 제목 추출 (카톡 티저의 첫 문장 정도를 주제로 사용)
         topic_preview = content.get("kakao_teaser", "").split("\n")[0][:40] + "..."
-        upload_to_notion(content, topic_preview, source_links)
+        upload_to_notion(content, topic_preview)
         
     except Exception as e:
         logging.error(f"파이프라인 실행 중 치명적 오류: {e}")
