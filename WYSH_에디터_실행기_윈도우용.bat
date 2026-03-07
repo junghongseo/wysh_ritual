@@ -27,6 +27,8 @@ IF NOT EXIST ".venv\Scripts\activate.bat" (
     echo.
 ) ELSE (
     call .venv\Scripts\activate.bat
+    :: 패키지 변경 대비 매번 조용하게 동기화 업데이트 진행
+    pip install -r requirements.txt >nul 2>&1
 )
 
 :: Run the script
