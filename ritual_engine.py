@@ -148,7 +148,16 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2) -> tuple:
         "https://www.menshealth.com/rss/all.xml", # Men's Health
         "https://www.harpersbazaar.com/rss/all.xml", # Harper's Bazaar
         "https://www.esquire.com/rss/all.xml", # Esquire
-        "https://www.elle.com/rss/all.xml" # Elle
+        "https://www.elle.com/rss/all.xml", # Elle
+        "https://www.vanityfair.com/feed/style/rss", # Vanity Fair Style
+        "https://www.allure.com/feed/wellness/rss", # Allure Wellness
+        "https://www.cosmopolitan.com/rss/health-fitness.xml", # Cosmopolitan Health
+        "https://www.refinery29.com/en-us/wellness/rss.xml", # Refinery29 Wellness
+        "https://www.self.com/feed/rss", # Self Magazine
+        "https://www.yogajournal.com/feed/", # Yoga Journal
+        "https://www.runnersworld.com/rss/all.xml", # Runner's World
+        "https://www.outsideonline.com/health/wellness/feed/", # Outside Magazine
+        "https://mindful.org/feed/" # Mindful.org
     ]
     
     results_text = ""
