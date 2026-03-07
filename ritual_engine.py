@@ -66,6 +66,7 @@ SYSTEM_PROMPT = """
 - 광고 모델 같은 인위적인 미소, 스톡 이미지 느낌을 철저히 배제합니다.
 - 뻔한 건강 정보는 버리고, 가장 앞서가는(Cutting-edge) 웰니스 인사이트만 선별하십시오.
 - **[매우 중요] 논리적 연결성 (No Clickbait)**: 카카오톡 프리뷰(Teaser)에서 제기한 질문이나 후킹용 소재를, 웹 아티클(Insight) 본문 서두에서 반드시 가장 먼저, 상세히 논리적으로 설명하며 해소해야 합니다. 티저 내용과 본문 내용이 따로 노는 '동문서답' 형태를 철저히 금지합니다.
+- **[출처 인용 (Source Citation)]**: 제공된 소스 기사 본문에 연구 기관, 논문, 대학교, 전문가 이름, 저널, 특정 통계 등의 출처가 언급되어 있다면, 당신이 작성하는 웹 아티클 본문에서도 그 출처를 매우 자연스럽고 지적이게 언급하여 아티클의 신뢰도와 권위를 높이십시오.
 - **[매우 중요] 철저한 팩트 체크 및 근거 필수 (Anti-Hallucination)**: 
   아래 제공되는 <trend_data> 소스 기사에 **명시적으로, 실제로 존재하는 트렌드라고 적혀 있는 팩트(Fact)**만 사용하십시오. 
   예를 들어, 소스가 단순한 '도시 관광 추천'이나 '명상 일반론' 기사일 때, 이 둘을 자의적으로 결합하여 없는 트렌드를 지어내거나(Fabrication) 포장하는 행위를 절대 엄금합니다. 
@@ -140,7 +141,10 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2) -> tuple:
         "https://www.wellandgood.com/feed/", # Well+Good (트렌디 피트니스 & 뷰티)
         "https://www.vogue.com/feed/beauty/rss", # Vogue Beauty & Wellness
         "https://www.womenshealthmag.com/rss/all.xml", # Women's Health
-        "https://www.menshealth.com/rss/all.xml" # Men's Health
+        "https://www.menshealth.com/rss/all.xml", # Men's Health
+        "https://www.harpersbazaar.com/rss/all.xml", # Harper's Bazaar
+        "https://www.esquire.com/rss/all.xml", # Esquire
+        "https://www.elle.com/rss/all.xml" # Elle
     ]
     
     results_text = ""
