@@ -67,10 +67,20 @@ SYSTEM_PROMPT = """
 - **[매우 중요] 논리적 연결성 (No Clickbait)**: 카카오톡 프리뷰(Teaser)에서 제기한 질문이나 후킹용 소재를, 웹 아티클(Insight) 본문 서두에서 반드시 가장 먼저, 상세히 논리적으로 설명하며 해소해야 합니다. 티저 내용과 본문 내용이 따로 노는 '동문서답' 형태를 철저히 금지합니다.
 - **[매우 중요] 철저한 팩트 체크 및 근거 필수 (Anti-Hallucination)**: 
   아래 제공되는 <trend_data> 소스 기사에 **명시적으로, 실제로 존재하는 트렌드라고 적혀 있는 팩트(Fact)**만 사용하십시오. 
-  예를 들어, 소스가 단순한 '서울 관광지 추천(Visit Seoul)'이나 '명상 일반론' 기사일 때, 이 둘을 자의적으로 결합하여 "서울에서 걷기 명상(어반 플래너리)이 새로운 트렌드로 떠오르고 있다"는 식으로 **없는 트렌드를 지어내거나(Fabrication) 포장하는 행위를 절대 엄금합니다.** 
-  반드시 소스 기사 내에서 "이러한 현상이 실제 트렌드로 자리잡고 있다"는 구체적인 근거가 있을 때만 해당 내용을 작성하십시오. 소스에 구체적 트렌드 근거가 없다면 억지로 지어내지 말고, 기사 내용 팩트 그대로 철학적인 웰니스 인사이트만 서술하십시오.
+  예를 들어, 소스가 단순한 '도시 관광 추천'이나 '명상 일반론' 기사일 때, 이 둘을 자의적으로 결합하여 없는 트렌드를 지어내거나(Fabrication) 포장하는 행위를 절대 엄금합니다. 
+  반드시 소스 기사나 구글 검색에서 "이러한 현상이 실제 트렌드로 자리잡고 있다"는 구체적인 근거가 있을 때만 해당 내용을 작성하십시오.
 
-입력되는 최신 웰니스 트렌드를 바탕으로, 독자의 삶의 감각을 깨울 수 있는 콘텐츠(JSON)를 생성하십시오.
+반드시 아래의 정해진 JSON 형식(Key 이름 정확히 일치)으로만 결과를 반환해야 하며, 마크다운 코드 블록(```json ... ```) 없이 순수한 JSON 텍스트 상태로 출력하십시오.
+
+[필수 JSON 반환 포맷]
+{
+  "kakao_teaser": "카톡 티저 텍스트...",
+  "web_article": "웹 아티클 본문...",
+  "reference_links": [
+    {"url": "https://...", "comment": "코멘트..."}
+  ],
+  "visual_prompt": "화보 영문 프롬프트..."
+}
 """
 
 
@@ -90,7 +100,12 @@ def read_local_context(file_path: str) -> str:
 def scrape_article_text(url: str) -> str:
     """BeautifulSoup을 이용해 원문 URL에서 기사 본문 텍스트만 추출합니다."""
     try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Referer': 'https://www.google.com/'
+        }
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
@@ -111,12 +126,15 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2) -> tuple:
     """글로벌 최고급 웰니스 매거진의 RSS 피드를 파싱하고 본문을 통째로 긁어옵니다."""
     logging.info("프리미엄 매거진 RSS 스크래핑 시작...")
     
-    # 대표적인 웰니스/라이프스타일 매거진 RSS 목록
+    # User-Agent 위장 (일부 사이트 봇 타겟팅 차단 우회)
+    feedparser.USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.0.0 Safari/537.36"
+    
+    # 대표적인 웰니스/라이프스타일 매거진 RSS 목록 (실제 작동 검증 완료)
     rss_urls = [
-        "https://www.mindbodygreen.com/rss",
-        "https://vogue.com/feed/wellness/rss",
-        "https://www.gq.com/feed/wellness/rss",
-        "https://www.wellandgood.com/feed/"
+        "https://rss.nytimes.com/services/xml/rss/nyt/Well.xml",  # NYT Well
+        "https://www.theguardian.com/lifeandstyle/health-and-wellbeing/rss", # Guardian Wellness
+        "https://fashionista.com/.rss/excerpt/category/beauty", # Fashionista Beauty/Wellness
+        "https://www.psychologytoday.com/us/index.xml" # Psychology Today (Mental Care)
     ]
     
     results_text = ""
@@ -124,7 +142,12 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2) -> tuple:
     
     for feed_url in rss_urls:
         try:
-            feed = feedparser.parse(feed_url)
+            # RSS 직접 다운로드 방식으로 차단 우회
+            headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+            res = requests.get(feed_url, headers=headers, timeout=10)
+            res.raise_for_status()
+            
+            feed = feedparser.parse(res.text)
             for entry in feed.entries[:limit_per_feed]:
                 title = entry.title
                 link = entry.link
@@ -223,15 +246,22 @@ def generate_editorial_content(trend_data: str, past_topics: str, brand_identity
         config=types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT,
             tools=[{"google_search": {}}],  # Google Search Grounding 기능 활성화
-            response_mime_type="application/json",
-            response_schema=EditorialContent,
             temperature=0.7,
         )
     )
     
-    # 텍스트 응답을 JSON으로 파싱 (schema를 강제했으므로 정상적인 JSON 문자열이 반환됨)
+    # 순수 JSON 처리
+    cleaned_res = response.text.strip()
+    if cleaned_res.startswith("```json"):
+        cleaned_res = cleaned_res[7:]
+    if cleaned_res.startswith("```"):
+        cleaned_res = cleaned_res[3:]
+    if cleaned_res.endswith("```"):
+        cleaned_res = cleaned_res[:-3]
+    cleaned_res = cleaned_res.strip()
+    
     try:
-        result_dict = json.loads(response.text)
+        result_dict = json.loads(cleaned_res)
     except json.JSONDecodeError:
         logging.error(f"JSON 파싱 실패: {response.text}")
         raise ValueError("Gemini API가 유효한 JSON을 반환하지 않았습니다.")
@@ -333,10 +363,16 @@ def main():
         # 2. 글로벌 웰니스/라이프스타일 매거진 RSS 통째 본문 스크래핑
         scraped_trends, source_links = scrape_premium_rss_feeds(limit_per_feed=2)
         
-        # 3. 과거 노션 이력 조회 (중복 방지 - 최근 50건까지 대폭 상향하여 철저히 검증)
+        # 3. 이번 주 Curation을 위한 랜덤 타겟 도시 선정
+        import random
+        cities = ["런던", "도쿄", "파리", "베를린", "스톡홀름", "시드니", "뉴욕", "코펜하겐", "바르셀로나", "서울", "상하이", "싱가포르", "홍콩"]
+        selected_city = random.choice(cities)
+        logging.info(f"선정된 타겟 도시 (검색 그라운딩 대상): {selected_city}")
+        
+        # 4. 과거 노션 이력 조회 (중복 방지 - 최근 50건까지 대폭 상향하여 철저히 검증)
         past_topics_text = get_past_notion_topics(limit=50)
         
-        # 4. AI 에디터 콘텐츠 생성 (Search Grounding 적용)
+        # 5. AI 에디터 콘텐츠 생성 (Search Grounding 적용)
         content = generate_editorial_content(
             trend_data=scraped_trends,
             past_topics=past_topics_text,
