@@ -42,10 +42,11 @@ class ReferenceLink(BaseModel):
 
 
 class EditorialContent(BaseModel):
-    kakao_teaser: str = Field(description="카카오톡 프리뷰, 350자 이내, 잡지 커버의 메인 헤드라인처럼 감각적이고 호기심을 유발하는 문구.")
-    web_article: str = Field(description="웹사이트 저널, 전문 에디터가 집필한 깊이 있는 아티클. 마크다운 형식. 반드시 카카오톡(kakao_teaser)에서 던진 화두나 후킹 포인트를 본문 서두에서 즉각적으로 받아 설명하고 완전히 해소해야 합니다.")
-    reference_links: List[ReferenceLink] = Field(description="본문 작성 시 실제로 인사이트를 얻거나 인용한 핵심 참고 링크 목록과 그 이유.")
-    visual_prompt: str = Field(description="화보 이미지 프롬프트 (영어), 하이엔드 매거진 스타일(35mm 렌즈, 자연광, 미니멀리즘 등).")
+    kakao_teaser: str = Field(description="카카오톡 프리뷰용 후킹 티저")
+    web_article: str = Field(description="본문 아티클 (마크다운 포맷)")
+    editor_note: str = Field(description="AI 에디터의 기획 의도, 선택한 소스와 타겟 도시 프리서치, 팩트체크 및 작성 논리를 설명하는 노트")
+    reference_links: List[ReferenceLink] = Field(description="실제로 아티클 작성에 활용된 참고 소스 링크 및 활용 코멘트 목록")
+    visual_prompt: str = Field(description="미드저니 등 이미지 생성을 위한 영문 화보 프롬프트 (영어), 하이엔드 매거진 스타일(35mm 렌즈, 자연광, 미니멀리즘 등).")
 
 
 # ---------------------------------------------------------------------------
@@ -76,6 +77,7 @@ SYSTEM_PROMPT = """
 {
   "kakao_teaser": "카톡 티저 텍스트...",
   "web_article": "웹 아티클 본문...",
+  "editor_note": "내가 왜 이 소스를 골랐고, 구글 검색(Grounding)을 통해 타겟 도시의 어떤 팩트를 검증하여 이 논리로 글을 작성했는지 상세히 서술...",
   "reference_links": [
     {"url": "https://...", "comment": "코멘트..."}
   ],
@@ -337,6 +339,11 @@ def upload_to_notion(content_dict: Dict[str, Any], topic_title: str):
                 },
                 "참고 링크": {
                     "rich_text": rich_text_links[:10]  # 최대 10개까지만 안전하게 적재
+                },
+                "에디터 노트": {
+                    "rich_text": [
+                        {"text": {"content": content_dict.get("editor_note", "")[:2000]}}
+                    ]
                 },
                 "화보 프롬프트": {
                     "rich_text": [
