@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul 2>&1
 :: Ensure the script runs in the directory where the .bat file is located
 pushd "%~dp0"
 
@@ -27,7 +28,7 @@ IF NOT EXIST ".venv\Scripts\activate.bat" (
     echo.
 ) ELSE (
     call .venv\Scripts\activate.bat
-    :: 패키지 변경 대비 매번 조용하게 동기화 업데이트 진행
+    :: Sync packages quietly on every run
     pip install -r requirements.txt >nul 2>&1
 )
 
