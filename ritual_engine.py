@@ -82,7 +82,7 @@ def search_wellness_trends(query: str = "뉴욕 런던 글로벌 웰니스 라�
     urls_text = ""
     try:
         with DDGS() as ddgs:
-            results = ddgs.text(query, max_results=max_results, region='kr-kr')
+            results = ddgs.text(query, max_results=max_results, region='wt-wt')
             for r in results:
                 results_text += f"- 제목: {r.get('title')}\n  내용: {r.get('body')}\n\n"
                 # DuckDuckGo 결과에서 URL 추출 (보통 'href' 키 사용)
@@ -199,6 +199,22 @@ def upload_to_notion(content_dict: Dict[str, str], topic_title: str, source_link
     # 한국 시간 기준(KST, UTC+9)임을 명시하기 위해 +09:00 추가
     target_date_str = next_tuesday.replace(hour=8, minute=0, second=0, microsecond=0).isoformat() + "+09:00"
     
+    # URL 텍스트를 파싱하여 클릭 가능한 노션 rich_text 링크 객체로 변환
+    rich_text_links = []
+    for link in source_links.split('\n'):
+        link = link.strip()
+        if link.startswith("http"):
+            rich_text_links.append({
+                "type": "text",
+                "text": {
+                    "content": link + "\n",
+                    "link": {"url": link}
+                }
+            })
+    
+    if not rich_text_links:
+        rich_text_links = [{"text": {"content": "참고 링크 없음"}}]
+    
     try:
         new_page = notion_client.pages.create(
             parent={"database_id": NOTION_DATABASE_ID},
@@ -229,9 +245,7 @@ def upload_to_notion(content_dict: Dict[str, str], topic_title: str, source_link
                     ]
                 },
                 "참고 링크": {
-                    "rich_text": [
-                        {"text": {"content": source_links[:2000]}}
-                    ]
+                    "rich_text": rich_text_links[:10]  # 최대 10개까지만 안전하게 적재
                 },
                 "화보 프롬프트": {
                     "rich_text": [
@@ -268,7 +282,8 @@ def main():
         
         selected_city = random.choice(cities)
         selected_category = random.choice(categories)
-        trend_keywords = f"최신 {selected_city} 웰니스 {selected_category} 라이프스타일 트렌드"
+        # 한국어-영어 혼합 쿼리로 변경하여 뉴스 포털 메인 대신 구체적인 글로벌 최신 아티클 유도
+        trend_keywords = f"latest {selected_city} wellness {selected_category} magazine article trends"
         
         logging.info(f"이번 주 큐레이션 타겟: 도시='{selected_city}', 카테고리='{selected_category}'")
         
