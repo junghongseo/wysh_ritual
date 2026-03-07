@@ -10,7 +10,9 @@ from google import genai
 from google.genai import types
 from notion_client import Client
 from pydantic import BaseModel, Field
-from duckduckgo_search import DDGS
+import feedparser
+import requests
+from bs4 import BeautifulSoup
 
 # ---------------------------------------------------------------------------
 # 초기 설정
@@ -85,25 +87,62 @@ def read_local_context(file_path: str) -> str:
         return ""
 
 
-def search_wellness_trends(query: str = "뉴욕 런던 글로벌 웰니스 라이프스타일 트렌드", max_results: int = 3) -> tuple:
-    """DuckDuckGo를 활용해 최신 웰니스 트렌드를 검색하고 텍스트와 추출한 출처 URL들을 반환합니다."""
-    logging.info(f"웹 검색 시작: '{query}'")
-    results_text = ""
-    urls_text = ""
+def scrape_article_text(url: str) -> str:
+    """BeautifulSoup을 이용해 원문 URL에서 기사 본문 텍스트만 추출합니다."""
     try:
-        with DDGS() as ddgs:
-            results = ddgs.text(query, max_results=max_results, region='wt-wt')
-            for r in results:
-                results_text += f"- 제목: {r.get('title')}\n  내용: {r.get('body')}\n\n"
-                # DuckDuckGo 결과에서 URL 추출 (보통 'href' 키 사용)
-                link = r.get('href') or r.get('url') or ""
-                if link:
-                    urls_text += f"{link}\n"
-        logging.info("웹 검색 완료.")
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # 불필요한 태그 제거 (광고, 스크립트, 네비게이션 등)
+        for junk in soup(['script', 'style', 'nav', 'header', 'footer', 'aside']):
+            junk.decompose()
+            
+        # 본문 핵심이 보통 <article>이나 본문 단락 <p>에 있음
+        paragraphs = soup.find_all('p')
+        text = ' '.join([p.get_text(strip=True) for p in paragraphs if len(p.get_text(strip=True)) > 20])
+        return text[:3000]  # 토큰 제한을 고려하여 기사당 최대 3000자로 제한
     except Exception as e:
-        logging.error(f"웹 검색 중 오류 발생: {e}")
-        results_text = "검색 데이터를 가져오지 못했습니다."
-    return results_text, urls_text.strip()
+        logging.warning(f"기사 스크래핑 실패 ({url}): {e}")
+        return ""
+
+def scrape_premium_rss_feeds(limit_per_feed: int = 2) -> tuple:
+    """글로벌 최고급 웰니스 매거진의 RSS 피드를 파싱하고 본문을 통째로 긁어옵니다."""
+    logging.info("프리미엄 매거진 RSS 스크래핑 시작...")
+    
+    # 대표적인 웰니스/라이프스타일 매거진 RSS 목록
+    rss_urls = [
+        "https://www.mindbodygreen.com/rss",
+        "https://vogue.com/feed/wellness/rss",
+        "https://www.gq.com/feed/wellness/rss",
+        "https://www.wellandgood.com/feed/"
+    ]
+    
+    results_text = ""
+    urls_list = []
+    
+    for feed_url in rss_urls:
+        try:
+            feed = feedparser.parse(feed_url)
+            for entry in feed.entries[:limit_per_feed]:
+                title = entry.title
+                link = entry.link
+                
+                # 원문 스크래핑 시도
+                article_body = scrape_article_text(link)
+                
+                if article_body:
+                    results_text += f"---\n[Source: {feed_url}]\n- 제목: {title}\n- 링크: {link}\n- 본문 내용:\n{article_body}\n\n"
+                    urls_list.append(link)
+        except Exception as e:
+            logging.error(f"RSS 파싱 오류 ({feed_url}): {e}")
+            
+    if not results_text:
+        results_text = "RSS에서 기사를 수집하지 못했습니다."
+        
+    logging.info(f"프리미엄 스크래핑 완료. (총 {len(urls_list)}개 기사 본문 확보)")
+    return results_text, "\n".join(urls_list)
 
 
 def get_past_notion_topics(limit: int = 10) -> str:
@@ -142,9 +181,9 @@ def get_past_notion_topics(limit: int = 10) -> str:
 # ---------------------------------------------------------------------------
 # 4. 핵심 AI 생성 로직
 # ---------------------------------------------------------------------------
-def generate_editorial_content(trend_data: str, past_topics: str, brand_identity: str, sample_article: str) -> Dict[str, str]:
+def generate_editorial_content(trend_data: str, past_topics: str, brand_identity: str, sample_article: str, target_city: str) -> Dict[str, str]:
     """검색 데이터, 과거 이력, 로컬 컨텍스트를 종합하여 에디토리얼을 생성합니다."""
-    logging.info("AI 에디터 콘텐츠 생성 시작...")
+    logging.info("AI 에디터 콘텐츠 생성 시작 (Google Search Grounding 활성화)...")
     
     if not gemini_client:
         raise ValueError("Gemini API Key가 설정되지 않았습니다.")
@@ -157,10 +196,17 @@ def generate_editorial_content(trend_data: str, past_topics: str, brand_identity
 {sample_article}
 
 ---
-다음은 이번주 글로벌 도시에서 수집된 최신 웰니스 트렌드 정보입니다:
+[Step 1. 영감의 원천 (Premium Sources)]
+다음은 이번주 글로벌 최고급 웰니스 매거진에서 수집된 최신 기사 본문들입니다:
 <trend_data>
 {trend_data}
 </trend_data>
+
+[Step 2. 로컬 팩트체크 및 결합 (Google Search Grounding)]
+위 기사들 중 가장 영감이 되는 주제 하나를 고르십시오. 
+그리고 **당신의 구글 검색(Search Grounding) 능력을 즉시 가동하여**, 해당 주제가 **이번 주 타겟 도시인 '{target_city}'**에서 실제로 어떻게 발현되고 있는지 구체적인 로컬 팩트(실제 명소, 스튜디오, 브랜드, 커뮤니티 현상 등)를 직접 검색하고 검증하십시오.
+- 만약 검색 결과 '{target_city}'에 그런 현상이 단 하나도 없다면, 절대 억지로 지어내지(Fabricate) 말고 일반적인 글로벌 트렌드로서만 우아하게 서술하십시오.
+- 검색된 결과가 있다면, 프리미엄 소스의 철학적 인사이트와 '{target_city}'의 생생한 로컬 사례를 매끄럽게 결합하여 최고의 로컬 웰니스 아티클을 작성하십시오.
 
 [주의 사항]
 최근에 이미 발행된 다음 주제들과는 **절대 겹치지 않는 새로운 앵글**로 작성해야 합니다.
@@ -168,7 +214,7 @@ def generate_editorial_content(trend_data: str, past_topics: str, brand_identity
 {past_topics}
 </past_topics>
 
-이 정보들을 바탕으로, 위시 리추얼 채널에 발행할 3가지 포맷(kakao_teaser, web_article, visual_prompt)을 생성해주십시오.
+이 모든 정보와 검색결과를 바탕으로, 위시 리추얼 채널에 발행할 3가지 포맷(kakao_teaser, web_article, visual_prompt)과, 당신이 실제로 활용한 최고급 소스+구글검색 URL들을 reference_links 필드에 정리하여 생성하십시오.
 """
 
     response = gemini_client.models.generate_content(
@@ -176,6 +222,7 @@ def generate_editorial_content(trend_data: str, past_topics: str, brand_identity
         contents=user_prompt,
         config=types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT,
+            tools=[{"google_search": {}}],  # Google Search Grounding 기능 활성화
             response_mime_type="application/json",
             response_schema=EditorialContent,
             temperature=0.7,
@@ -283,35 +330,19 @@ def main():
         brand_id_text = read_local_context(os.path.join(base_dir, "brand_identity.md"))
         sample_text = read_local_context(os.path.join(base_dir, "sample_article.md"))
         
-        # 2. 웹 트렌드 자율 검색 (매번 다채로운 도시와 라이프스타일 주제를 조합)
-        cities = ["런던", "토쿄", "파리", "베를린", "스톡홀름", "시드니", "뉴욕", "코펜하겐", "바르셀로나","서울", "상하이", "싱가포르", "홍콩"]
-        categories = [
-            "식음료(F&B)", 
-            "피트니스 및 러닝 크루", 
-            "마인드풀니스 및 멘탈케어", 
-            "패션 및 뷰티 트렌드", 
-            "취미 및 라이프스타일",
-            "웰니스 및 수면관리"
-        ]
-        
-        selected_city = random.choice(cities)
-        selected_category = random.choice(categories)
-        # 쌍따옴표("")를 사용하여 해당 도시 이름과 웰니스 키워드가 반드시 포함된 구체적인 글로벌 최신 아티클만 엄격하게 검색 유도 (일반 관광가이드 배제)
-        trend_keywords = f'"{selected_city}" "{selected_category}" wellness trend OR lifestyle "article"'
-        
-        logging.info(f"이번 주 큐레이션 타겟: 도시='{selected_city}', 카테고리='{selected_category}'")
-        
-        scraped_trends, source_links = search_wellness_trends(query=trend_keywords, max_results=5)
+        # 2. 글로벌 웰니스/라이프스타일 매거진 RSS 통째 본문 스크래핑
+        scraped_trends, source_links = scrape_premium_rss_feeds(limit_per_feed=2)
         
         # 3. 과거 노션 이력 조회 (중복 방지 - 최근 50건까지 대폭 상향하여 철저히 검증)
         past_topics_text = get_past_notion_topics(limit=50)
         
-        # 4. AI 에디터 콘텐츠 생성
+        # 4. AI 에디터 콘텐츠 생성 (Search Grounding 적용)
         content = generate_editorial_content(
             trend_data=scraped_trends,
             past_topics=past_topics_text,
             brand_identity=brand_id_text,
-            sample_article=sample_text
+            sample_article=sample_text,
+            target_city=selected_city
         )
         
         # 5. 노션 대시보드 적재
