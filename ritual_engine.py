@@ -63,6 +63,7 @@ SYSTEM_PROMPT = """
 - 광고 모델 같은 인위적인 미소, 스톡 이미지 느낌을 철저히 배제합니다.
 - 뻔한 건강 정보는 버리고, 가장 앞서가는(Cutting-edge) 웰니스 인사이트만 선별하십시오.
 - **[매우 중요] 논리적 연결성 (No Clickbait)**: 카카오톡 프리뷰(Teaser)에서 제기한 질문이나 후킹용 소재를, 웹 아티클(Insight) 본문 서두에서 반드시 가장 먼저, 상세히 논리적으로 설명하며 해소해야 합니다. 티저 내용과 본문 내용이 따로 노는 '동문서답' 형태를 철저히 금지합니다.
+- **[매우 중요] 철저한 팩트 체크 (Anti-Hallucination)**: 아래 제공되는 <trend_data> 소스 기사에 있는 명백한 '팩트(Fact)'에만 기반하여 글을 작성해야 합니다. 소스 기사가 특정 도시(예: 홍콩)의 이야기를 다루지 않는 일반 기사인데도 불구하고, "홍콩 금융 리더들의 트렌드"처럼 억지로 가짜 상황을 꾸며내거나 지어내지(Fabrication) 마십시오. 소스에 도시 내용이 없으면 일반적인 인사이트로 서술해야 합니다.
 
 입력되는 최신 웰니스 트렌드를 바탕으로, 독자의 삶의 감각을 깨울 수 있는 콘텐츠(JSON)를 생성하십시오.
 """
@@ -292,8 +293,8 @@ def main():
         
         selected_city = random.choice(cities)
         selected_category = random.choice(categories)
-        # 한국어-영어 혼합 쿼리로 변경하여 뉴스 포털 메인 대신 구체적인 글로벌 최신 아티클 유도
-        trend_keywords = f"latest {selected_city} wellness {selected_category} magazine article trends"
+        # 쌍따옴표("")를 사용하여 해당 도시 이름과 웰니스 키워드가 반드시 포함된 구체적인 글로벌 최신 아티클만 엄격하게 검색 유도
+        trend_keywords = f'"{selected_city}" "{selected_category}" wellness magazine exact article'
         
         logging.info(f"이번 주 큐레이션 타겟: 도시='{selected_city}', 카테고리='{selected_category}'")
         
