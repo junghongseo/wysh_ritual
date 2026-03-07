@@ -42,6 +42,7 @@ class ReferenceLink(BaseModel):
 
 
 class EditorialContent(BaseModel):
+    core_topic: str = Field(description="이 아티클의 핵심 주제를 나타내는 간결하고 명확한 1~3단어 키워드 (예: '12-3-30 워크아웃', '슈퍼에이저')")
     kakao_teaser: str = Field(description="카카오톡 프리뷰용 후킹 티저")
     web_article: str = Field(description="본문 아티클 (마크다운 포맷)")
     editor_note: str = Field(description="AI 에디터의 기획 의도, 선택한 소스에 대한 팩트체크 및 작성 논리를 설명하는 노트")
@@ -77,6 +78,7 @@ SYSTEM_PROMPT = """
 
 [필수 JSON 반환 포맷]
 {
+  "core_topic": "핵심 주제 키워드 (예: '12-3-30 워크아웃')",
   "kakao_teaser": "카톡 티저 텍스트...",
   "web_article": "웹 아티클 본문...",
   "editor_note": "내가 왜 이 소스를 골랐고, 구글 검색(Grounding)을 통해 어떤 팩트를 검증하여 이 논리로 글을 작성했는지 상세히 서술...",
@@ -391,8 +393,11 @@ def main():
         )
         
         # 5. 노션 대시보드 적재
-        # 제목 추출 (카톡 티저의 첫 문장 정도를 주제로 사용)
-        topic_preview = content.get("kakao_teaser", "").split("\n")[0][:40] + "..."
+        # 제목 추출: 중복 방지를 위해 핵심 주제(core_topic)를 대괄호 안에 강제로 박아서 저장
+        core_topic = content.get("core_topic", "새로운 웰니스 트렌드")
+        teaser_first_line = content.get("kakao_teaser", "").split("\n")[0][:30]
+        topic_preview = f"[{core_topic}] {teaser_first_line}..."
+        
         upload_to_notion(content, topic_preview)
         
     except Exception as e:
