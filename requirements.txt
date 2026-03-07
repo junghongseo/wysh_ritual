@@ -1,0 +1,5 @@
+google-genai>=1.0.0
+notion-client>=2.2.1
+python-dotenv>=1.0.1
+pydantic>=2.7.0
+duckduckgo-search>=5.0.0
