@@ -44,7 +44,7 @@ class ReferenceLink(BaseModel):
 class EditorialContent(BaseModel):
     kakao_teaser: str = Field(description="카카오톡 프리뷰용 후킹 티저")
     web_article: str = Field(description="본문 아티클 (마크다운 포맷)")
-    editor_note: str = Field(description="AI 에디터의 기획 의도, 선택한 소스와 타겟 도시 프리서치, 팩트체크 및 작성 논리를 설명하는 노트")
+    editor_note: str = Field(description="AI 에디터의 기획 의도, 선택한 소스에 대한 팩트체크 및 작성 논리를 설명하는 노트")
     reference_links: List[ReferenceLink] = Field(description="실제로 아티클 작성에 활용된 참고 소스 링크 및 활용 코멘트 목록")
     visual_prompt: str = Field(description="미드저니 등 이미지 생성을 위한 영문 화보 프롬프트 (영어), 하이엔드 매거진 스타일(35mm 렌즈, 자연광, 미니멀리즘 등).")
 
@@ -69,6 +69,7 @@ SYSTEM_PROMPT = """
 - **[매우 중요] 철저한 팩트 체크 및 근거 필수 (Anti-Hallucination)**: 
   아래 제공되는 <trend_data> 소스 기사에 **명시적으로, 실제로 존재하는 트렌드라고 적혀 있는 팩트(Fact)**만 사용하십시오. 
   예를 들어, 소스가 단순한 '도시 관광 추천'이나 '명상 일반론' 기사일 때, 이 둘을 자의적으로 결합하여 없는 트렌드를 지어내거나(Fabrication) 포장하는 행위를 절대 엄금합니다. 
+  특정 도시가 원문에 명확하게 언급되지 않았다면, 그 트렌드를 임의의 도시와 억지로 엮어내지 마십시오. 세대, 성별 혹은 글로벌 차원의 넓은 관점에서 서술하십시오.
   반드시 소스 기사나 구글 검색에서 "이러한 현상이 실제 트렌드로 자리잡고 있다"는 구체적인 근거가 있을 때만 해당 내용을 작성하십시오.
 
 반드시 아래의 정해진 JSON 형식(Key 이름 정확히 일치)으로만 결과를 반환해야 하며, 마크다운 코드 블록(```json ... ```) 없이 순수한 JSON 텍스트 상태로 출력하십시오.
@@ -77,7 +78,7 @@ SYSTEM_PROMPT = """
 {
   "kakao_teaser": "카톡 티저 텍스트...",
   "web_article": "웹 아티클 본문...",
-  "editor_note": "내가 왜 이 소스를 골랐고, 구글 검색(Grounding)을 통해 타겟 도시의 어떤 팩트를 검증하여 이 논리로 글을 작성했는지 상세히 서술...",
+  "editor_note": "내가 왜 이 소스를 골랐고, 구글 검색(Grounding)을 통해 어떤 팩트를 검증하여 이 논리로 글을 작성했는지 상세히 서술...",
   "reference_links": [
     {"url": "https://...", "comment": "코멘트..."}
   ],
@@ -206,7 +207,7 @@ def get_past_notion_topics(limit: int = 10) -> str:
 # ---------------------------------------------------------------------------
 # 4. 핵심 AI 생성 로직
 # ---------------------------------------------------------------------------
-def generate_editorial_content(trend_data: str, past_topics: str, brand_identity: str, sample_article: str, target_city: str) -> Dict[str, str]:
+def generate_editorial_content(trend_data: str, past_topics: str, brand_identity: str, sample_article: str) -> Dict[str, str]:
     """검색 데이터, 과거 이력, 로컬 컨텍스트를 종합하여 에디토리얼을 생성합니다."""
     logging.info("AI 에디터 콘텐츠 생성 시작 (Google Search Grounding 활성화)...")
     
@@ -227,11 +228,12 @@ def generate_editorial_content(trend_data: str, past_topics: str, brand_identity
 {trend_data}
 </trend_data>
 
-[Step 2. 로컬 팩트체크 및 결합 (Google Search Grounding)]
+[Step 2. 팩트체크 및 트렌드 결합 (Google Search Grounding)]
 위 기사들 중 가장 영감이 되는 주제 하나를 고르십시오. 
-그리고 **당신의 구글 검색(Search Grounding) 능력을 즉시 가동하여**, 해당 주제가 **이번 주 타겟 도시인 '{target_city}'**에서 실제로 어떻게 발현되고 있는지 구체적인 로컬 팩트(실제 명소, 스튜디오, 브랜드, 커뮤니티 현상 등)를 직접 검색하고 검증하십시오.
-- 만약 검색 결과 '{target_city}'에 그런 현상이 단 하나도 없다면, 절대 억지로 지어내지(Fabricate) 말고 일반적인 글로벌 트렌드로서만 우아하게 서술하십시오.
-- 검색된 결과가 있다면, 프리미엄 소스의 철학적 인사이트와 '{target_city}'의 생생한 로컬 사례를 매끄럽게 결합하여 최고의 로컬 웰니스 아티클을 작성하십시오.
+그리고 **당신의 구글 검색(Search Grounding) 능력을 즉시 가동하여**, 해당 주제가 현재 글로벌 피트니스/웰니스 씬에서 실제로 어떻게 발현되고 있는지 구체적인 팩트(실제 명소, 스튜디오, 브랜드, 커뮤니티 현상 등)를 직접 검색하고 검증하십시오.
+- 구글 검색을 통해 팩트에 기반한 구체적인 사례를 찾아 보완하십시오.
+- [매우 중요] 만일 기사 원문이나 검색 결과가 특정 도시(예: 런던, 코펜하겐 등)에 국한된 내용이 아니라면, 억지로 특정 로컬 도시 이름을 언급하여 환각(Fabrication) 트렌드를 만들어내지 마십시오. 대신 '글로벌 하이엔드 웰니스 씬', '밀레니얼/Z세대 피트니스 문화' 등 넓고 지적인 관점으로 서술하십시오.
+- 프리미엄 소스의 철학적 인사이트와 구글 검색으로 확인된 실제 사례를 매끄럽게 결합하여 최고의 웰니스 아티클을 작성하십시오.
 
 [주의 사항]
 최근에 이미 발행된 다음 주제들과는 **절대 겹치지 않는 새로운 앵글**로 작성해야 합니다.
@@ -370,22 +372,15 @@ def main():
         # 2. 글로벌 웰니스/라이프스타일 매거진 RSS 통째 본문 스크래핑
         scraped_trends, source_links = scrape_premium_rss_feeds(limit_per_feed=2)
         
-        # 3. 이번 주 Curation을 위한 랜덤 타겟 도시 선정
-        import random
-        cities = ["런던", "도쿄", "파리", "베를린", "스톡홀름", "시드니", "뉴욕", "코펜하겐", "바르셀로나", "서울", "상하이", "싱가포르", "홍콩"]
-        selected_city = random.choice(cities)
-        logging.info(f"선정된 타겟 도시 (검색 그라운딩 대상): {selected_city}")
-        
-        # 4. 과거 노션 이력 조회 (중복 방지 - 최근 50건까지 대폭 상향하여 철저히 검증)
+        # 3. 과거 노션 이력 조회 (중복 방지 - 최근 50건까지 대폭 상향하여 철저히 검증)
         past_topics_text = get_past_notion_topics(limit=50)
         
-        # 5. AI 에디터 콘텐츠 생성 (Search Grounding 적용)
+        # 4. AI 에디터 콘텐츠 생성 (Search Grounding 적용)
         content = generate_editorial_content(
             trend_data=scraped_trends,
             past_topics=past_topics_text,
             brand_identity=brand_id_text,
-            sample_article=sample_text,
-            target_city=selected_city
+            sample_article=sample_text
         )
         
         # 5. 노션 대시보드 적재
