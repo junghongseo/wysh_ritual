@@ -98,12 +98,15 @@ SYSTEM_PROMPT = """
 # 3. 부가 기능: 로컬 컨텍스트 읽기, 웹 검색, 노션 히스토리 조회
 # ---------------------------------------------------------------------------
 def read_local_context(file_path: str) -> str:
-    """로컬 마크다운 파일(가이드라인, 샘플)을 읽어옵니다."""
+    """로컬 마크다운 파일(가이드라인, 샘플)을 읽어옵니다. 루트 디렉토리 기준"""
+    # Vercel 환경에서는 api/ 하위가 아닌 루트 디렉토리(..)를 기준으로 파일을 찾아야 함
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        full_path = os.path.join(base_dir, file_path)
+        with open(full_path, 'r', encoding='utf-8') as f:
             return f.read()
     except Exception as e:
-        logging.error(f"로컬 파일 읽기 실패 ({file_path}): {e}")
+        logging.error(f"로컬 파일 읽기 실패 ({full_path}): {e}")
         return ""
 
 
@@ -387,14 +390,14 @@ def upload_to_notion(content_dict: Dict[str, Any], topic_title: str):
 
 
 # ---------------------------------------------------------------------------
-# 메인 실행 블록
+# 메인 실행 블록 (API 호환 구조로 변경)
 # ---------------------------------------------------------------------------
-def main():
+def run_engine() -> Dict[str, Any]:
+    """서버리스 API 호출을 위한 진입점입니다. 성공/실패 여부를 반환합니다."""
     try:
-        # 1. 로컬 브랜드 가이드 및 샘플 읽기
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        brand_id_text = read_local_context(os.path.join(base_dir, "brand_identity.md"))
-        sample_text = read_local_context(os.path.join(base_dir, "sample_article.md"))
+        # 1. 로컬 브랜드 가이드 및 샘플 읽기 (api 폴더 밖의 루트 파일)
+        brand_id_text = read_local_context("brand_identity.md")
+        sample_text = read_local_context("sample_article.md")
         
         # 2. 글로벌 웰니스/라이프스타일 매거진 RSS 통째 본문 스크래핑
         scraped_trends, source_links = scrape_premium_rss_feeds(limit_per_feed=2)
@@ -411,15 +414,20 @@ def main():
         )
         
         # 5. 노션 대시보드 적재
-        # 제목 추출: 중복 방지를 위해 핵심 주제(core_topic)와 짧은 후킹 제목(hooking_title) 결합
         core_topic = content.get("core_topic", "새로운 웰니스 트렌드")
         hooking_title = content.get("hooking_title", "이번 주 위시 리추얼")
         topic_preview = f"[{core_topic}] {hooking_title}"
         
         upload_to_notion(content, topic_preview)
         
+        return {"status": "success", "message": f"노션 적재 성공: {topic_preview}"}
+        
     except Exception as e:
-        logging.error(f"파이프라인 실행 중 치명적 오류: {e}")
+        error_msg = str(e)
+        logging.error(f"파이프라인 실행 중 오류: {error_msg}")
+        return {"status": "error", "message": error_msg}
 
 if __name__ == "__main__":
-    main()
+    # 로컬 터미널에서의 강제 실행용
+    res = run_engine()
+    print(res)

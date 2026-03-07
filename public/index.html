@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WYSH Ritual Editor</title>
+    <style>
+        :root {
+            --wysh-black: #1a1a1a;
+            --wysh-white: #ffffff;
+            --wysh-gray: #f5f5f5;
+            --wysh-accent: #2e2e2e;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--wysh-black);
+            color: var(--wysh-white);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            text-align: center;
+        }
+
+        .container {
+            max-width: 600px;
+            padding: 2rem;
+        }
+
+        .logo {
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-size: 1rem;
+            color: #888;
+            margin-bottom: 3rem;
+            line-height: 1.5;
+        }
+
+        .btn {
+            background-color: var(--wysh-white);
+            color: var(--wysh-black);
+            border: none;
+            padding: 1.2rem 2.5rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 14px 0 rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 255, 255, 0.2);
+            background-color: #f0f0f0;
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            background-color: #444;
+            color: #888;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: var(--wysh-white);
+            animation: spin 1s ease-in-out infinite;
+            margin: 0 auto;
+        }
+
+        .btn.loading .btn-text {
+            display: none;
+        }
+
+        .btn.loading .spinner {
+            display: block;
+            border-top-color: var(--wysh-black);
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        #status-message {
+            margin-top: 2rem;
+            font-size: 0.95rem;
+            color: #aaa;
+            min-height: 24px;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        
+        #status-message.visible {
+            opacity: 1;
+        }
+
+        .success {
+            color: #4CAF50 !important;
+        }
+
+        .error {
+            color: #F44336 !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="logo">WYSH.</div>
+        <div class="subtitle">AI Ritual Editor Dashboard<br><span style="font-size: 0.8rem;">글로벌 19대 프리미엄 소스 스크래핑 & 웹 아티클 자동 생성</span></div>
+
+        <button id="run-btn" class="btn">
+            <span class="btn-text">AI 에디터 가동하기 🚀</span>
+            <div class="spinner"></div>
+        </button>
+
+        <div id="status-message">대기 중...</div>
+    </div>
+
+    <script>
+        const btn = document.getElementById('run-btn');
+        const statusMsg = document.getElementById('status-message');
+        const btnText = document.querySelector('.btn-text');
+
+        // 로딩 시 표출될 메시지 배열
+        const loadingMessages = [
+            "글로벌 19대 웰니스 매거진 RSS 통신 연결 중...",
+            "최신 아티클 원문 파싱 및 수집 중 (약 34건)...",
+            "노션 과거 발행 이력 조회 중...",
+            "Gemini 2.5 Pro 호출: 인사이트 추출 및 구글 서치 그라운딩 팩트체크...",
+            "카톡 초안, 마이크로 아티클(캐러셀), 웹 아티클 포맷팅 중...",
+            "거의 다 되었습니다. 노션 대시보드 적재 중..."
+        ];
+
+        let messageInterval;
+
+        btn.addEventListener('click', async () => {
+            // 버튼 상태 변경
+            btn.classList.add('loading');
+            btn.disabled = true;
+            statusMsg.className = 'visible';
+            
+            // 상태 메시지 로테이션 애니메이션
+            let msgIndex = 0;
+            statusMsg.textContent = loadingMessages[0];
+            messageInterval = setInterval(() => {
+                msgIndex = (msgIndex + 1) % loadingMessages.length;
+                statusMsg.textContent = loadingMessages[msgIndex];
+            }, 6000); // 6초마다 메시지 변경
+
+            try {
+                // Vercel Serverless Function 호출
+                const response = await fetch('/api/run', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                clearInterval(messageInterval);
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    statusMsg.innerHTML = `✅ <b>성공!</b> ${result.message}`;
+                    statusMsg.className = 'visible success';
+                } else {
+                    statusMsg.innerHTML = `❌ <b>오류 발생:</b> ${result.message}`;
+                    statusMsg.className = 'visible error';
+                }
+            } catch (error) {
+                clearInterval(messageInterval);
+                statusMsg.innerHTML = `❌ <b>네트워크 오류:</b> 서버와 통신할 수 없습니다.`;
+                statusMsg.className = 'visible error';
+                console.error(error);
+            } finally {
+                // 버튼 상태 복구
+                btn.classList.remove('loading');
+                btn.disabled = false;
+                btnText.textContent = "AI 에디터 다시 실행하기 🔄";
+            }
+        });
+    </script>
+</body>
+</html>
