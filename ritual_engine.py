@@ -45,6 +45,7 @@ class EditorialContent(BaseModel):
     core_topic: str = Field(description="이 아티클의 핵심 주제를 나타내는 간결하고 명확한 1~3단어 키워드 (예: '12-3-30 워크아웃', '슈퍼에이저')")
     hooking_title: str = Field(description="사람들을 후킹할 수 있는 매력적이고 짧은 제목 (예: '결정 피로 시대의 가장 우아한 해답')")
     kakao_teaser: str = Field(description="카카오톡 프리뷰용 후킹 티저")
+    insta_carousel: str = Field(description="인스타그램 카드뉴스용 텍스트. 총 4~8장의 슬라이드로 구성하며, 인스타 유저가 읽기 편하도록 [Slide 1] [Slide 2] 처럼 명시하고 각 장당 2~3문장의 짧고 임팩트 있는 호흡으로 작성할 것.")
     web_article: str = Field(description="본문 아티클 (마크다운 포맷)")
     editor_note: str = Field(description="AI 에디터의 기획 의도, 선택한 소스에 대한 팩트체크 및 작성 논리를 설명하는 노트")
     reference_links: List[ReferenceLink] = Field(description="실제로 아티클 작성에 활용된 참고 소스 링크 및 활용 코멘트 목록")
@@ -82,6 +83,7 @@ SYSTEM_PROMPT = """
   "core_topic": "핵심 주제 키워드 (예: '12-3-30 워크아웃')",
   "hooking_title": "사람들을 후킹할 수 있는 매력적인 짧은 제목...",
   "kakao_teaser": "카톡 티저 텍스트...",
+  "insta_carousel": "[Slide 1] 첫 번째 슬라이드 내용... \n\n[Slide 2] 두 번째 슬라이드 내용...",
   "web_article": "웹 아티클 본문...",
   "editor_note": "내가 왜 이 소스를 골랐고, 구글 검색(Grounding)을 통해 어떤 팩트를 검증하여 이 논리로 글을 작성했는지 상세히 서술...",
   "reference_links": [
@@ -352,6 +354,11 @@ def upload_to_notion(content_dict: Dict[str, Any], topic_title: str):
                 "카톡 초안": {
                     "rich_text": [
                         {"text": {"content": content_dict.get("kakao_teaser", "")[:2000]}}
+                    ]
+                },
+                "인스타 카드뉴스": {
+                    "rich_text": [
+                        {"text": {"content": content_dict.get("insta_carousel", "")[:2000]}}
                     ]
                 },
                 "웹 아티클": {
