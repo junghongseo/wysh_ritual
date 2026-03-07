@@ -135,10 +135,13 @@ def scrape_article_text(url: str) -> str:
         logging.warning(f"기사 스크래핑 실패 ({url}): {e}")
         return ""
 
-def scrape_premium_rss_feeds(limit_per_feed: int = 2) -> tuple:
+def scrape_premium_rss_feeds(limit_per_feed: int = 2, exclude_urls: list = None) -> tuple:
     """글로벌 최고급 웰니스 매거진의 RSS 피드를 파싱하고 본문을 통째로 긁어옵니다."""
     logging.info("프리미엄 매거진 RSS 스크래핑 시작...")
     
+    if exclude_urls is None:
+        exclude_urls = []
+        
     # User-Agent 위장 (일부 사이트 봇 타겟팅 차단 우회)
     feedparser.USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.0.0 Safari/537.36"
     
@@ -176,9 +179,19 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2) -> tuple:
             res.raise_for_status()
             
             feed = feedparser.parse(res.text)
-            for entry in feed.entries[:limit_per_feed]:
+            added_count = 0
+            for entry in feed.entries:
+                if added_count >= limit_per_feed:
+                    break
+                    
                 title = entry.title
                 link = entry.link
+                base_link = link.split("?")[0]
+                
+                # 이미 사용된 URL(기사)인 경우 스킵
+                if any(base_link in ex_url or ex_url in base_link for ex_url in exclude_urls if ex_url):
+                    logging.info(f"중복 기사 스킵: {title} ({base_link})")
+                    continue
                 
                 # 원문 스크래핑 시도
                 article_body = scrape_article_text(link)
@@ -186,6 +199,7 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2) -> tuple:
                 if article_body:
                     results_text += f"---\n[Source: {feed_url}]\n- 제목: {title}\n- 링크: {link}\n- 본문 내용:\n{article_body}\n\n"
                     urls_list.append(link)
+                    added_count += 1
         except Exception as e:
             logging.error(f"RSS 파싱 오류 ({feed_url}): {e}")
             
@@ -196,13 +210,14 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2) -> tuple:
     return results_text, "\n".join(urls_list)
 
 
-def get_past_notion_topics(limit: int = 10) -> str:
-    """노션 데이터베이스에서 최근 발행된 주제(Title) 목록을 가져옵니다."""
+def get_past_notion_data(limit: int = 50) -> tuple[str, list]:
+    """노션 데이터베이스에서 최근 발행된 주제(Title)와 참고 링크 목록을 가져옵니다."""
     logging.info("노션 과거 발행 이력 조회 시작...")
     if not notion_client or not NOTION_DATABASE_ID:
-        return "노션 설정이 없어 과거 이력을 조회할 수 없습니다."
+        return "노션 설정이 없어 과거 이력을 조회할 수 없습니다.", []
         
     topics = []
+    past_urls = []
     try:
         # 최근 생성일 기준으로 정렬하여 가져오기
         response = notion_client.databases.query(
@@ -213,20 +228,29 @@ def get_past_notion_topics(limit: int = 10) -> str:
             }
         )
         for page in response.get("results", []):
-            # '주제' 속성이 Title 타입이라고 가정
             props = page.get("properties", {})
+            
+            # 주제 추출
             topic_prop = props.get("주제", {})
             title_list = topic_prop.get("title", [])
             if title_list:
                 topics.append(title_list[0].get("plain_text", ""))
                 
-        logging.info(f"과거 이력 {len(topics)}건 조회 완료.")
+            # 참고 링크 추출
+            links_prop = props.get("참고 링크", {})
+            rich_texts = links_prop.get("rich_text", [])
+            for rt in rich_texts:
+                if rt.get("href"):
+                    past_urls.append(rt["href"].split("?")[0])
+                elif rt.get("text", {}).get("link") and rt["text"]["link"].get("url"):
+                    past_urls.append(rt["text"]["link"]["url"].split("?")[0])
+                
+        logging.info(f"과거 이력 {len(topics)}건 및 URL {len(past_urls)}건 조회 완료.")
     except Exception as e:
         logging.error(f"노션 조회 중 오류 발생: {e}")
         
-    if not topics:
-        return "최근 발행된 주제가 없습니다."
-    return ", ".join(topics)
+    topics_text = ", ".join(topics) if topics else "최근 발행된 주제가 없습니다."
+    return topics_text, past_urls
 
 
 # ---------------------------------------------------------------------------
@@ -399,11 +423,11 @@ def run_engine() -> Dict[str, Any]:
         brand_id_text = read_local_context("brand_identity.md")
         sample_text = read_local_context("sample_article.md")
         
-        # 2. 글로벌 웰니스/라이프스타일 매거진 RSS 통째 본문 스크래핑
-        scraped_trends, source_links = scrape_premium_rss_feeds(limit_per_feed=2)
+        # 2. 과거 노션 이력 조회 (중복 방지 - 최근 50건까지 대폭 상향하여 철저히 검증)
+        past_topics_text, past_urls = get_past_notion_data(limit=50)
         
-        # 3. 과거 노션 이력 조회 (중복 방지 - 최근 50건까지 대폭 상향하여 철저히 검증)
-        past_topics_text = get_past_notion_topics(limit=50)
+        # 3. 글로벌 웰니스/라이프스타일 매거진 RSS 통째 본문 스크래핑
+        scraped_trends, source_links = scrape_premium_rss_feeds(limit_per_feed=2, exclude_urls=past_urls)
         
         # 4. AI 에디터 콘텐츠 생성 (Search Grounding 적용)
         content = generate_editorial_content(
