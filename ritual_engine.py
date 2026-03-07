@@ -132,12 +132,15 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2) -> tuple:
     # User-Agent 위장 (일부 사이트 봇 타겟팅 차단 우회)
     feedparser.USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.0.0 Safari/537.36"
     
-    # 대표적인 웰니스/라이프스타일 매거진 RSS 목록 (실제 작동 검증 완료)
+    # 대표적인 글로벌 프리미엄 웰니스/라이프스타일 매거진 RSS 목록
     rss_urls = [
         "https://rss.nytimes.com/services/xml/rss/nyt/Well.xml",  # NYT Well
         "https://www.theguardian.com/lifeandstyle/health-and-wellbeing/rss", # Guardian Wellness
-        "https://fashionista.com/.rss/excerpt/category/beauty", # Fashionista Beauty/Wellness
-        "https://www.psychologytoday.com/us/index.xml" # Psychology Today (Mental Care)
+        "https://www.mindbodygreen.com/rss/feed.xml", # MindBodyGreen (권위있는 웰니스 미디어)
+        "https://www.wellandgood.com/feed/", # Well+Good (트렌디 피트니스 & 뷰티)
+        "https://www.vogue.com/feed/beauty/rss", # Vogue Beauty & Wellness
+        "https://www.womenshealthmag.com/rss/all.xml", # Women's Health
+        "https://www.menshealth.com/rss/all.xml" # Men's Health
     ]
     
     results_text = ""
