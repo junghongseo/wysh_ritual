@@ -22,6 +22,7 @@ IF NOT EXIST ".venv\Scripts\activate.bat" (
     python -m venv .venv
     call .venv\Scripts\activate.bat
     pip install -r requirements.txt
+    pip install notion-client==2.2.1
     echo [INFO] Setup complete!
     echo.
 ) ELSE (
