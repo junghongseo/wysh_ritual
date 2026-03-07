@@ -75,20 +75,25 @@ def read_local_context(file_path: str) -> str:
         return ""
 
 
-def search_wellness_trends(query: str = "뉴욕 런던 글로벌 웰니스 라이프스타일 트렌드", max_results: int = 3) -> str:
-    """DuckDuckGo를 활용해 최신 웰니스 트렌드를 검색하고 텍스트로 반환합니다."""
+def search_wellness_trends(query: str = "뉴욕 런던 글로벌 웰니스 라이프스타일 트렌드", max_results: int = 3) -> tuple:
+    """DuckDuckGo를 활용해 최신 웰니스 트렌드를 검색하고 텍스트와 추출한 출처 URL들을 반환합니다."""
     logging.info(f"웹 검색 시작: '{query}'")
     results_text = ""
+    urls_text = ""
     try:
         with DDGS() as ddgs:
             results = ddgs.text(query, max_results=max_results, region='kr-kr')
             for r in results:
                 results_text += f"- 제목: {r.get('title')}\n  내용: {r.get('body')}\n\n"
+                # DuckDuckGo 결과에서 URL 추출 (보통 'href' 키 사용)
+                link = r.get('href') or r.get('url') or ""
+                if link:
+                    urls_text += f"{link}\n"
         logging.info("웹 검색 완료.")
     except Exception as e:
         logging.error(f"웹 검색 중 오류 발생: {e}")
         results_text = "검색 데이터를 가져오지 못했습니다."
-    return results_text
+    return results_text, urls_text.strip()
 
 
 def get_past_notion_topics(limit: int = 10) -> str:
@@ -178,8 +183,8 @@ def generate_editorial_content(trend_data: str, past_topics: str, brand_identity
     return result_dict
 
 
-def upload_to_notion(content_dict: Dict[str, str], topic_title: str):
-    """생성된 콘텐츠를 노션 데이터베이스에 적재합니다."""
+def upload_to_notion(content_dict: Dict[str, str], topic_title: str, source_links: str = ""):
+    """생성된 콘텐츠와 참고 링크를 노션 데이터베이스에 적재합니다."""
     logging.info("Notion 대시보드 적재 시작...")
     
     if not notion_client or not NOTION_DATABASE_ID:
@@ -223,6 +228,11 @@ def upload_to_notion(content_dict: Dict[str, str], topic_title: str):
                         {"text": {"content": content_dict.get("web_article", "")[:2000]}}
                     ]
                 },
+                "참고 링크": {
+                    "rich_text": [
+                        {"text": {"content": source_links[:2000]}}
+                    ]
+                },
                 "화보 프롬프트": {
                     "rich_text": [
                         {"text": {"content": content_dict.get("visual_prompt", "")[:2000]}}
@@ -262,7 +272,7 @@ def main():
         
         logging.info(f"이번 주 큐레이션 타겟: 도시='{selected_city}', 카테고리='{selected_category}'")
         
-        scraped_trends = search_wellness_trends(query=trend_keywords, max_results=5)
+        scraped_trends, source_links = search_wellness_trends(query=trend_keywords, max_results=5)
         
         # 3. 과거 노션 이력 조회 (중복 방지)
         past_topics_text = get_past_notion_topics(limit=5)
@@ -278,7 +288,7 @@ def main():
         # 5. 노션 대시보드 적재
         # 제목 추출 (카톡 티저의 첫 문장 정도를 주제로 사용)
         topic_preview = content.get("kakao_teaser", "").split("\n")[0][:40] + "..."
-        upload_to_notion(content, topic_preview)
+        upload_to_notion(content, topic_preview, source_links)
         
     except Exception as e:
         logging.error(f"파이프라인 실행 중 치명적 오류: {e}")
