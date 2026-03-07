@@ -300,8 +300,8 @@ def main():
         
         scraped_trends, source_links = search_wellness_trends(query=trend_keywords, max_results=5)
         
-        # 3. 과거 노션 이력 조회 (중복 방지)
-        past_topics_text = get_past_notion_topics(limit=5)
+        # 3. 과거 노션 이력 조회 (중복 방지 - 최근 50건까지 대폭 상향하여 철저히 검증)
+        past_topics_text = get_past_notion_topics(limit=50)
         
         # 4. AI 에디터 콘텐츠 생성
         content = generate_editorial_content(
