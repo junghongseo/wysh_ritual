@@ -188,7 +188,8 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2, exclude_urls: list = None)
                     
                 title = entry.title
                 link = entry.link
-                base_link = link.split("?")[0]
+                # 쿼리스트링 및 해시 태그 전부 제거하여 베이스 URL 추출
+                base_link = link.split("?")[0].split("#")[0].strip('/')
                 
                 # 이미 사용된 URL(기사)인 경우 스킵
                 if any(base_link in ex_url or ex_url in base_link for ex_url in exclude_urls if ex_url):
@@ -243,9 +244,9 @@ def get_past_notion_data(limit: int = 50) -> tuple[str, list]:
             rich_texts = links_prop.get("rich_text", [])
             for rt in rich_texts:
                 if rt.get("href"):
-                    past_urls.append(rt["href"].split("?")[0])
+                    past_urls.append(rt["href"].split("?")[0].split("#")[0].strip('/'))
                 elif rt.get("text", {}).get("link") and rt["text"]["link"].get("url"):
-                    past_urls.append(rt["text"]["link"]["url"].split("?")[0])
+                    past_urls.append(rt["text"]["link"]["url"].split("?")[0].split("#")[0].strip('/'))
                 
         logging.info(f"과거 이력 {len(topics)}건 및 URL {len(past_urls)}건 조회 완료.")
     except Exception as e:
