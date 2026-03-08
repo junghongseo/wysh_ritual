@@ -215,9 +215,9 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2, exclude_urls: list = None)
     import random
     random.shuffle(rss_urls)
     
-    # [알림] Vercel Serverless Function 타임아웃(60초) 방지를 위해,
-    # 랜덤하게 섞인 최상단의 8개 피드만 검사합니다.
-    rss_urls = rss_urls[:8]
+    # [알림] Vercel Serverless Function 타임아웃(무료 요금제 10초 제한) 방지를 위해,
+    # 랜덤하게 섞인 최상단의 단 2개 피드만 초고속으로 검사합니다.
+    rss_urls = rss_urls[:2]
     
     results_text = ""
     urls_list = []
@@ -619,8 +619,8 @@ def run_engine() -> Dict[str, Any]:
         target_category = "식품(Food), 체중관리(Diet), 영양학(Nutrition), 이너뷰티 트렌드" if is_food_focused else "정신 건강(Mental health), 수면(Sleep), 피트니스 다이내믹스, 라이프스타일 웰니스"
         logging.info(f"🎯 [동전 던지기] 이번 호 타겟 카테고리: {target_category}")
 
-        # 3. 글로벌 웰니스/라이프스타일 매거진 RSS 통째 본문 스크래핑
-        scraped_trends, source_links = scrape_premium_rss_feeds(limit_per_feed=2, exclude_urls=past_urls)
+        # 3. 글로벌 웰니스/라이프스타일 매거진 RSS 통째 본문 스크래핑 (타임아웃 방지를 위해 피드당 1개 기사만)
+        scraped_trends, source_links = scrape_premium_rss_feeds(limit_per_feed=1, exclude_urls=past_urls)
         
         # 4. 1단계: AI 데스크팅 (타겟 카테고리에 맞는 안전한 기사 선별)
         safe_trend_data = select_safe_article_with_ai(scraped_trends, past_topics_text, target_category)
