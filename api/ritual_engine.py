@@ -49,7 +49,7 @@ class EditorialContent(BaseModel):
     web_article: str = Field(description="본문 아티클 (마크다운 포맷). 글로벌 트렌드를 깊이 있게 분석한 후, 글의 후반부에 독자가 자신의 일상 속에서 이 리추얼을 직접 시도하고 적용해 볼 수 있는 '구체적인 일상 실천 가이드(Actionable Tips)' 챕터를 자연스럽게 포함하여 작성할 것.")
     editor_note: str = Field(description="AI 에디터의 기획 의도, 선택한 소스에 대한 팩트체크 및 작성 논리를 설명하는 노트")
     reference_links: List[ReferenceLink] = Field(description="실제로 아티클 작성에 활용된 참고 소스 링크 및 활용 코멘트 목록")
-    visual_prompt: str = Field(description="미드저니 등 이미지 생성을 위한 영문 화보 프롬프트 (영어), 하이엔드 매거진 스타일(35mm 렌즈, 자연광, 미니멀리즘 등).")
+    visual_prompt: str = Field(description="미드저니 등 이미지 생성을 위한 영문 화보 프롬프트 (영어), 하이엔드 매거진 스타일(35mm 렌즈, 자연광, 미니멀리즘 등). 반드시 프롬프트 맨 마지막에 가로:세로 3과 2의 비율을 나타내는 '--ar 3:2' 파라미터를 포함할 것.")
 
 
 class SelectedSafeArticle(BaseModel):
