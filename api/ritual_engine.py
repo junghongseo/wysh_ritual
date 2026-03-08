@@ -52,6 +52,12 @@ class EditorialContent(BaseModel):
     visual_prompt: str = Field(description="미드저니 등 이미지 생성을 위한 영문 화보 프롬프트 (영어), 하이엔드 매거진 스타일(35mm 렌즈, 자연광, 미니멀리즘 등).")
 
 
+class SelectedSafeArticle(BaseModel):
+    title: str = Field(description="선택된 안전한 기사의 제목")
+    source_url: str = Field(description="선택된 기사의 원문 URL")
+    article_body: str = Field(description="선택된 기사의 본문 내용 전체")
+    reason: str = Field(description="이 기사를 선택한 이유 (과거 생성된 리스트와 어떻게 완전히 다른지 설명)")
+
 # ---------------------------------------------------------------------------
 # 2. 페르소나 및 시스템 프롬프트 정의
 # ---------------------------------------------------------------------------
@@ -345,9 +351,50 @@ def release_lock(page_id: str):
 # ---------------------------------------------------------------------------
 # 4. 핵심 AI 생성 로직
 # ---------------------------------------------------------------------------
-def generate_editorial_content(trend_data: str, past_topics: str, brand_identity: str, sample_article: str) -> Dict[str, str]:
-    """검색 데이터, 과거 이력, 로컬 컨텍스트를 종합하여 에디토리얼을 생성합니다."""
-    logging.info("AI 에디터 콘텐츠 생성 시작 (Google Search Grounding 활성화)...")
+def select_safe_article_with_ai(scraped_trends: str, past_topics: str) -> str:
+    """1단계 프리필터링: 스크래핑된 여러 기사 중, 과거 주제와 겹치지 않는 단일 기사를 AI를 통해 선별합니다."""
+    logging.info("AI 데스크팅: 안전한 새 트렌드 기사 판별 중 (Step 1)...")
+    
+    if not gemini_client:
+        return scraped_trends
+        
+    prompt = f"""
+당신은 엄격한 데스크 에디터입니다.
+아래 <past_topics>는 우리가 과거에 이미 다룬 주제들입니다. 이 주제들(또는 이와 조금이라도 유사한 개념)은 **절대로** 다시 다루면 안 됩니다.
+
+<past_topics>
+{past_topics}
+</past_topics>
+
+아래 <new_articles>는 오늘 새로 수집된 소스들입니다. 이 중에서 <past_topics>와 개념적으로 완전히 동떨어진, 가장 신선하고 영감이 되는 기사를 **단 하나만** 골라주세요.
+
+<new_articles>
+{scraped_trends}
+</new_articles>
+
+선택한 단 하나의 기사에 대해 제목, 원문 URL, 본문 내용을 그대로 추출하고, 선택 이유를 설명해주세요.
+"""
+    try:
+        response = gemini_client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=SelectedSafeArticle,
+                temperature=0.1
+            )
+        )
+        res_dict = json.loads(response.text)
+        safe_article_text = f"---\n[Source: {res_dict.get('source_url')}]\n- 제목: {res_dict.get('title')}\n- 본문 내용:\n{res_dict.get('article_body')}\n\n"
+        logging.info(f"AI 데스크팅 완료. 완전히 새로운 기사 채택: {res_dict.get('title')}")
+        return safe_article_text
+    except Exception as e:
+        logging.error(f"AI 데스크팅 실패: {e}")
+        return scraped_trends
+
+def generate_editorial_content(trend_data: str, brand_identity: str, sample_article: str) -> Dict[str, str]:
+    """검색 데이터, 로컬 컨텍스트를 종합하여 에디토리얼을 생성합니다. (과거 금지어 프롬프트 제거)"""
+    logging.info("AI 에디터 콘텐츠 생성 시작 (Step 2 - Google Search Grounding)...")
     
     if not gemini_client:
         raise ValueError("Gemini API Key가 설정되지 않았습니다.")
@@ -361,25 +408,16 @@ def generate_editorial_content(trend_data: str, past_topics: str, brand_identity
 
 ---
 [Step 1. 영감의 원천 (Premium Sources)]
-다음은 이번주 글로벌 최고급 웰니스 매거진에서 수집된 최신 기사 본문들입니다:
+다음은 엄선된 글로벌 최신 기사 본문입니다:
 <trend_data>
 {trend_data}
 </trend_data>
 
 [Step 2. 팩트체크 및 트렌드 결합 (Google Search Grounding)]
-위 기사들 중 가장 영감이 되는 주제 하나를 고르십시오. 
-그리고 **당신의 구글 검색(Search Grounding) 능력을 즉시 가동하여**, 해당 주제가 현재 글로벌 피트니스/웰니스 씬에서 실제로 어떻게 발현되고 있는지 구체적인 팩트(실제 명소, 스튜디오, 브랜드, 커뮤니티 현상 등)를 직접 검색하고 검증하십시오.
+위 기사에서 영감을 얻어, **당신의 구글 검색(Search Grounding) 능력을 즉시 가동하여**, 해당 주제가 현재 글로벌 피트니스/웰니스 씬에서 실제로 어떻게 발현되고 있는지 구체적인 팩트(실제 명소, 스튜디오, 브랜드, 커뮤니티 현상 등)를 직접 검색하고 검증하십시오.
 - 구글 검색을 통해 팩트에 기반한 구체적인 사례를 찾아 보완하십시오.
 - [매우 중요] 만일 기사 원문이나 검색 결과가 특정 도시(예: 런던, 코펜하겐 등)에 국한된 내용이 아니라면, 억지로 특정 로컬 도시 이름을 언급하여 환각(Fabrication) 트렌드를 만들어내지 마십시오. 대신 '글로벌 하이엔드 웰니스 씬', '밀레니얼/Z세대 피트니스 문화' 등 넓고 지적인 관점으로 서술하십시오.
 - 프리미엄 소스의 철학적 인사이트와 구글 검색으로 확인된 실제 사례를 매끄럽게 결합하여 최고의 웰니스 아티클을 작성하십시오.
-
-[주의 사항]
-- **[매우 중요: 중복 및 시스템 환각 절대 금지]**
-  아래의 <banned_core_topics> 목록은 최근에 이미 발행된 트렌드들입니다. **이 목록에 있는 어떤 주제나 이와 매우 유사한 개념(예: 동양의학, 차이나맥싱 등)을 어떠한 이유로든 절대로 생성해서는 안 됩니다. 만약 이 금지어 목록 중 하나를 핵심 주제로 선정할 경우 치명적인 시스템 실패로 간주됩니다.** 
-  반드시 전혀 다른 카테고리의 새롭고 신선한 웰니스 트렌드를 구글 검색을 통해 발굴하십시오.
-<banned_core_topics>
-{past_topics}
-</banned_core_topics>
 
 이 모든 정보와 검색결과를 바탕으로, 위시 리추얼 채널에 발행할 3가지 포맷(kakao_teaser, web_article, visual_prompt)과, 당신이 실제로 활용한 최고급 소스+구글검색 URL들을 reference_links 필드에 정리하여 생성하십시오.
 """
@@ -526,15 +564,17 @@ def run_engine() -> Dict[str, Any]:
         # 3. 글로벌 웰니스/라이프스타일 매거진 RSS 통째 본문 스크래핑
         scraped_trends, source_links = scrape_premium_rss_feeds(limit_per_feed=2, exclude_urls=past_urls)
         
-        # 4. AI 에디터 콘텐츠 생성 (Search Grounding 적용)
+        # 4. 1단계: AI 데스크팅 (안전한 기사 선별)
+        safe_trend_data = select_safe_article_with_ai(scraped_trends, past_topics_text)
+        
+        # 5. 2단계: AI 에디터 콘텐츠 본편 생성 (Search Grounding 적용)
         content = generate_editorial_content(
-            trend_data=scraped_trends,
-            past_topics=past_topics_text,
+            trend_data=safe_trend_data,
             brand_identity=brand_id_text,
             sample_article=sample_text
         )
         
-        # 5. 노션 대시보드 적재
+        # 6. 노션 대시보드 적재
         core_topic = content.get("core_topic", "새로운 웰니스 트렌드")
         hooking_title = content.get("hooking_title", "이번 주 위시 리추얼")
         topic_preview = f"[{core_topic}] {hooking_title}"
