@@ -616,10 +616,9 @@ def run_engine() -> Dict[str, Any]:
         # 2. 과거 노션 이력 조회 (중복 방지 - 최근 50건까지 대폭 상향하여 철저히 검증)
         past_topics_text, past_urls = get_past_notion_data(limit=50)
         
-        # 2.5 50% 확률 다이어트/식품 타겟팅 로직 결합
-        is_food_focused = random.random() < 0.5
-        target_category = "식품(Food), 체중관리(Diet), 영양학(Nutrition), 이너뷰티 트렌드" if is_food_focused else "정신 건강(Mental health), 수면(Sleep), 피트니스 다이내믹스, 라이프스타일 웰니스"
-        logging.info(f"🎯 [동전 던지기] 이번 호 타겟 카테고리: {target_category}")
+        # 2.5 타겟 카테고리 고정 (당분간 미식/식음료/다이어트/영양 분야로 범위 한정)
+        target_category = "미식, 다이어트, 영양, 비건, 건강식, 스포츠영양, 새로운 식품, 식음료 트렌드"
+        logging.info(f"🎯 [타겟 고정] 이번 호 카테고리: {target_category}")
 
         # 3. 글로벌 웰니스/라이프스타일 매거진 RSS 통째 본문 스크래핑 (타임아웃 방지를 위해 피드당 1개 기사만)
         scraped_trends, source_links = scrape_premium_rss_feeds(limit_per_feed=1, exclude_urls=past_urls)
