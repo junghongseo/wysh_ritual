@@ -215,6 +215,10 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2, exclude_urls: list = None)
     import random
     random.shuffle(rss_urls)
     
+    # [알림] Vercel Serverless Function 타임아웃(60초) 방지를 위해,
+    # 랜덤하게 섞인 최상단의 8개 피드만 검사합니다.
+    rss_urls = rss_urls[:8]
+    
     results_text = ""
     urls_list = []
     
@@ -318,9 +322,12 @@ def acquire_lock() -> str:
         return ""
         
     try:
+        from datetime import timezone
         # 최근 10분 이내에 생성된 락이 있는지 확인 (데드락 방지)
-        now = datetime.now()
-        ten_mins_ago = (now - timedelta(minutes=10)).isoformat() + "+09:00"
+        # Vercel 환경이 UTC이므로 명시적으로 KST를 구해서 계산해야 함.
+        kst = timezone(timedelta(hours=9))
+        now_kst = datetime.now(kst)
+        ten_mins_ago = (now_kst - timedelta(minutes=10)).isoformat()
         
         response = notion_client.databases.query(
             **{
