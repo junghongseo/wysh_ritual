@@ -181,14 +181,31 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2, exclude_urls: list = None)
     global_news_rss = [
         # 프랑스 (프랑스어) - bien-être(웰니스), tendance(트렌드), mode de vie(라이프스타일)
         "https://news.google.com/rss/search?q=bien-%C3%AAtre+tendance+mode+de+vie&hl=fr&gl=FR&ceid=FR:fr",
+        # 프랑스 미식 웰니스 (영양, 슈퍼푸드)
+        "https://news.google.com/rss/search?q=superaliments+nutrition+tendance&hl=fr&gl=FR&ceid=FR:fr",
+        
         # 일본 (일본어) - ウェルネス(웰니스), トレンド(트렌드), ライフスタイル(라이프스타일)
         "https://news.google.com/rss/search?q=%E3%82%A6%E3%82%A7%E3%83%AB%E3%83%8D%E3%82%B9+%E3%83%88%E3%83%AC%E3%83%B3%E3%83%89+%E3%83%A9%E3%82%A4%E3%83%95%E3%82%B9%E3%82%BF%E3%82%A4%E3%83%AB&hl=ja&gl=JP&ceid=JP:ja",
+        # 일본 다이어트/슈퍼푸드 (スーパーフード ダイエット)
+        "https://news.google.com/rss/search?q=%E3%82%B9%E3%83%BC%E3%83%91%E3%83%BC%E3%83%95%E3%83%BC%E3%83%89+%E3%83%80%E3%82%A4%E3%82%A8%E3%83%83%E3%83%88+%E3%83%88%E3%83%AC%E3%83%B3%E3%83%89&hl=ja&gl=JP&ceid=JP:ja",
+        
         # 독일 (독일어) - Wellness, Trend, Lebensstil
         "https://news.google.com/rss/search?q=Wellness+Trend+Lebensstil&hl=de&gl=DE&ceid=DE:de",
+        # 독일 영양/비건 트렌드
+        "https://news.google.com/rss/search?q=Ern%C3%A4hrung+Superfood+Vegan+Trend&hl=de&gl=DE&ceid=DE:de",
+        
         # 스웨덴/북유럽 (스웨덴어) - hälsa(건강/웰니스), trend
         "https://news.google.com/rss/search?q=h%C3%A4lsa+wellness+trend&hl=sv&gl=SE&ceid=SE:sv",
+        # 스웨덴 식단/건강식
+        "https://news.google.com/rss/search?q=kost+n%C3%A4ring+superfood+trend&hl=sv&gl=SE&ceid=SE:sv",
+        
         # 한국 (한국어) - 웰니스, 라이프스타일, 트렌드
-        "https://news.google.com/rss/search?q=%EC%9B%B0%EB%8B%88%EC%8A%A4+%EB%9D%BC%EC%9D%B4%ED%94%84%EC%8A%A4%ED%83%80%EC%9D%BC+%ED%8A%B8%EB%88%8C%EB%93%9C&hl=ko&gl=KR&ceid=KR:ko"
+        "https://news.google.com/rss/search?q=%EC%9B%B0%EB%8B%88%EC%8A%A4+%EB%9D%BC%EC%9D%B4%ED%94%84%EC%8A%A4%ED%83%80%EC%9D%BC+%ED%8A%B8%EB%88%8C%EB%93%9C&hl=ko&gl=KR&ceid=KR:ko",
+        # 한국 식음료/이너뷰티
+        "https://news.google.com/rss/search?q=%EC%8A%88%ED%8D%BC%ED%91%B8%EB%93%9C+%EC%8B%9D%EB%8B%A8+%EC%98%81%EC%96%91+%EC%9D%B4%EB%84%88%EB%B7%B0%ED%8B%B0+%ED%8A%B8%EB%88%8C%EB%93%9C&hl=ko&gl=KR&ceid=KR:ko",
+        
+        # 글로벌 영미권 식음료 전용
+        "https://news.google.com/rss/search?q=superfood+nutrition+diet+trend&hl=en-US&gl=US&ceid=US:en"
     ]
     
     rss_urls.extend(global_news_rss)
@@ -372,28 +389,30 @@ def release_lock(page_id: str):
 # ---------------------------------------------------------------------------
 # 4. 핵심 AI 생성 로직
 # ---------------------------------------------------------------------------
-def select_safe_article_with_ai(scraped_trends: str, past_topics: str) -> str:
-    """1단계 프리필터링: 스크래핑된 여러 기사 중, 과거 주제와 겹치지 않는 단일 기사를 AI를 통해 선별합니다."""
-    logging.info("AI 데스크팅: 안전한 새 트렌드 기사 판별 중 (Step 1)...")
+def select_safe_article_with_ai(scraped_trends: str, past_topics: str, target_category: str) -> str:
+    """1단계 프리필터링: 스크래핑된 여러 기사 중, 목표 타겟 카테고리에 가장 부합하면서 과거 주제와 겹치지 않는 단일 기사를 선정합니다."""
+    logging.info(f"AI 데스크팅: 타겟 카테고리 [{target_category}]에 맞는 안전한 새 기사 판별 중 (Step 1)...")
     
     if not gemini_client:
         return scraped_trends
         
     prompt = f"""
-당신은 엄격한 데스크 에디터입니다.
-아래 <past_topics>는 우리가 과거에 이미 다룬 주제들입니다. 이 주제들(또는 이와 조금이라도 유사한 개념)은 **절대로** 다시 다루면 안 됩니다.
+당신은 엄격하고 날카로운 데스크 에디터입니다.
+이번 발행 호의 최우선 타겟 카테고리는 **[{target_category}]** 입니다.
+
+아래 <new_articles>는 오늘 새로 수집된 글로벌 소스들입니다.
+이 중에서 반드시 **[{target_category}]** 카테고리에 가장 완벽히 부합하면서도, 
+<past_topics>에 리스트업된 과거 금지 주제들과는 완전히 동떨어진 가장 신선하고 영감이 되는 기사를 **단 하나만** 골라주세요.
 
 <past_topics>
 {past_topics}
 </past_topics>
 
-아래 <new_articles>는 오늘 새로 수집된 소스들입니다. 이 중에서 <past_topics>와 개념적으로 완전히 동떨어진, 가장 신선하고 영감이 되는 기사를 **단 하나만** 골라주세요.
-
 <new_articles>
 {scraped_trends}
 </new_articles>
 
-선택한 단 하나의 기사에 대해 제목, 원문 URL, 본문 내용을 그대로 추출하고, 선택 이유를 설명해주세요.
+선택한 단 하나의 기사에 대해 제목, 원문 URL, 본문 내용을 그대로 추출하고, 선택 이유(타겟 카테고리 부합도 및 중복 회피 이유)를 설명해주세요.
 """
     try:
         response = gemini_client.models.generate_content(
@@ -407,13 +426,13 @@ def select_safe_article_with_ai(scraped_trends: str, past_topics: str) -> str:
         )
         res_dict = json.loads(response.text)
         safe_article_text = f"---\n[Source: {res_dict.get('source_url')}]\n- 제목: {res_dict.get('title')}\n- 본문 내용:\n{res_dict.get('article_body')}\n\n"
-        logging.info(f"AI 데스크팅 완료. 완전히 새로운 기사 채택: {res_dict.get('title')}")
+        logging.info(f"AI 데스크팅 완료. 타겟 달성 기사 채택: {res_dict.get('title')}")
         return safe_article_text
     except Exception as e:
         logging.error(f"AI 데스크팅 실패: {e}")
         return scraped_trends
 
-def generate_editorial_content(trend_data: str, brand_identity: str, sample_article: str) -> Dict[str, str]:
+def generate_editorial_content(trend_data: str, brand_identity: str, sample_article: str, target_category: str) -> Dict[str, str]:
     """검색 데이터, 로컬 컨텍스트를 종합하여 에디토리얼을 생성합니다. (과거 금지어 프롬프트 제거)"""
     logging.info("AI 에디터 콘텐츠 생성 시작 (Step 2 - Google Search Grounding)...")
     
@@ -423,6 +442,9 @@ def generate_editorial_content(trend_data: str, brand_identity: str, sample_arti
     user_prompt = f"""
 [Brand Identity & Constraints]
 {brand_identity}
+
+이번 위시 리추얼의 핵심 타겟 영감 카테고리는 **[{target_category}]** 입니다.
+이 렌즈를 통해 아래 기사들을 분석하고 서술하십시오.
 
 [Sample References]
 {sample_article}
@@ -584,17 +606,23 @@ def run_engine() -> Dict[str, Any]:
         # 2. 과거 노션 이력 조회 (중복 방지 - 최근 50건까지 대폭 상향하여 철저히 검증)
         past_topics_text, past_urls = get_past_notion_data(limit=50)
         
+        # 2.5 50% 확률 다이어트/식품 타겟팅 로직 결합
+        is_food_focused = random.random() < 0.5
+        target_category = "식품(Food), 체중관리(Diet), 영양학(Nutrition), 이너뷰티 트렌드" if is_food_focused else "정신 건강(Mental health), 수면(Sleep), 피트니스 다이내믹스, 라이프스타일 웰니스"
+        logging.info(f"🎯 [동전 던지기] 이번 호 타겟 카테고리: {target_category}")
+
         # 3. 글로벌 웰니스/라이프스타일 매거진 RSS 통째 본문 스크래핑
         scraped_trends, source_links = scrape_premium_rss_feeds(limit_per_feed=2, exclude_urls=past_urls)
         
-        # 4. 1단계: AI 데스크팅 (안전한 기사 선별)
-        safe_trend_data = select_safe_article_with_ai(scraped_trends, past_topics_text)
+        # 4. 1단계: AI 데스크팅 (타겟 카테고리에 맞는 안전한 기사 선별)
+        safe_trend_data = select_safe_article_with_ai(scraped_trends, past_topics_text, target_category)
         
         # 5. 2단계: AI 에디터 콘텐츠 본편 생성 (Search Grounding 적용)
         content = generate_editorial_content(
             trend_data=safe_trend_data,
             brand_identity=brand_id_text,
-            sample_article=sample_text
+            sample_article=sample_text,
+            target_category=target_category
         )
         
         # 6. 노션 대시보드 적재
