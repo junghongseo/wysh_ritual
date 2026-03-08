@@ -176,6 +176,27 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2, exclude_urls: list = None)
         "https://mindful.org/feed/" # Mindful.org
     ]
     
+    # [추가] 2. 글로벌 웰니스 선진국의 현지 언어 구글 뉴스 RSS (실시간 트렌드)
+    # 구글 뉴스 RSS 포맷: https://news.google.com/rss/search?q={query}&hl={lang}&gl={country}&ceid={country}:{lang}
+    global_news_rss = [
+        # 프랑스 (프랑스어) - bien-être(웰니스), tendance(트렌드), mode de vie(라이프스타일)
+        "https://news.google.com/rss/search?q=bien-%C3%AAtre+tendance+mode+de+vie&hl=fr&gl=FR&ceid=FR:fr",
+        # 일본 (일본어) - ウェルネス(웰니스), トレンド(트렌드), ライフスタイル(라이프스타일)
+        "https://news.google.com/rss/search?q=%E3%82%A6%E3%82%A7%E3%83%AB%E3%83%8D%E3%82%B9+%E3%83%88%E3%83%AC%E3%83%B3%E3%83%89+%E3%83%A9%E3%82%A4%E3%83%95%E3%82%B9%E3%82%BF%E3%82%A4%E3%83%AB&hl=ja&gl=JP&ceid=JP:ja",
+        # 독일 (독일어) - Wellness, Trend, Lebensstil
+        "https://news.google.com/rss/search?q=Wellness+Trend+Lebensstil&hl=de&gl=DE&ceid=DE:de",
+        # 스웨덴/북유럽 (스웨덴어) - hälsa(건강/웰니스), trend
+        "https://news.google.com/rss/search?q=h%C3%A4lsa+wellness+trend&hl=sv&gl=SE&ceid=SE:sv",
+        # 한국 (한국어) - 웰니스, 라이프스타일, 트렌드
+        "https://news.google.com/rss/search?q=%EC%9B%B0%EB%8B%88%EC%8A%A4+%EB%9D%BC%EC%9D%B4%ED%94%84%EC%8A%A4%ED%83%80%EC%9D%BC+%ED%8A%B8%EB%88%8C%EB%93%9C&hl=ko&gl=KR&ceid=KR:ko"
+    ]
+    
+    rss_urls.extend(global_news_rss)
+    
+    # [핵심] 매 실행마다 국가별 기사가 상단에 잡힐 확률을 공평하게 하기 위해 셔플링
+    import random
+    random.shuffle(rss_urls)
+    
     results_text = ""
     urls_list = []
     
@@ -407,15 +428,17 @@ def generate_editorial_content(trend_data: str, brand_identity: str, sample_arti
 {sample_article}
 
 ---
-[Step 1. 영감의 원천 (Premium Sources)]
-다음은 엄선된 글로벌 최신 기사 본문입니다:
+[Step 1. 영감의 원천 (Premium Global Sources)]
+다음은 북미, 유럽(프랑스, 스웨덴, 독일), 아시아(일본, 한국) 등 글로벌 각국에서 현지 언어로 수집된 최신 기사 본문입니다.
+(프랑스어, 일본어 등의 언어는 영어/한국어로 자동 해석하여 이해하십시오)
+
 <trend_data>
 {trend_data}
 </trend_data>
 
 [Step 2. 팩트체크 및 트렌드 결합 (Google Search Grounding)]
-위 기사에서 영감을 얻어, **당신의 구글 검색(Search Grounding) 능력을 즉시 가동하여**, 해당 주제가 현재 글로벌 피트니스/웰니스 씬에서 실제로 어떻게 발현되고 있는지 구체적인 팩트(실제 명소, 스튜디오, 브랜드, 커뮤니티 현상 등)를 직접 검색하고 검증하십시오.
-- 구글 검색을 통해 팩트에 기반한 구체적인 사례를 찾아 보완하십시오.
+위 세계 다국적 기사에서 영감을 얻어, **당신의 구글 검색(Search Grounding) 능력을 즉시 가동하여**, 해당 주제가 현재 글로벌 피트니스/웰니스 씬에서 실제로 어떻게 발현되고 있는지 구체적인 팩트(실제 명소, 스튜디오, 브랜드, 현지 커뮤니티 현상 등)를 직접 검색하고 검증하십시오.
+- 구글 검색을 통해 각 국가의 문화적 특수성이 반영된 통찰력 있는 사례를 찾아 보완하십시오. (예: 일본의 온천/수면 문화, 프랑스의 미식 웰니스, 스웨덴의 자연 친화적 리추얼 등 파생 검색)
 - [매우 중요] 만일 기사 원문이나 검색 결과가 특정 도시(예: 런던, 코펜하겐 등)에 국한된 내용이 아니라면, 억지로 특정 로컬 도시 이름을 언급하여 환각(Fabrication) 트렌드를 만들어내지 마십시오. 대신 '글로벌 하이엔드 웰니스 씬', '밀레니얼/Z세대 피트니스 문화' 등 넓고 지적인 관점으로 서술하십시오.
 - 프리미엄 소스의 철학적 인사이트와 구글 검색으로 확인된 실제 사례를 매끄럽게 결합하여 최고의 웰니스 아티클을 작성하십시오.
 
