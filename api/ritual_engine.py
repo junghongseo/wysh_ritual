@@ -261,6 +261,86 @@ def get_past_notion_data(limit: int = 50) -> tuple[str, list]:
     banned_topics_text = ", ".join(set(banned_topics)) if banned_topics else "최근 발행된 주제가 없습니다."
     return banned_topics_text, past_urls
 
+def acquire_lock() -> str:
+    """
+    Notion 문서 기반 분산 락을 획득합니다.
+    [SYSTEM] Generating... 이라는 제목의 페이지가 존재하면 다른 프로세스가 작업 중인 것으로 판단합니다.
+    락을 획득하면 생성한 페이지의 ID를 반환하고, 실패하면 빈 문자열을 반환합니다.
+    만약 이전 락이 10분 이상 지났다면 데드락으로 간주하고 강제로 덮어씁니다/무시합니다.
+    """
+    logging.info("동시성 제어: Notion Lock 확인 중...")
+    if not notion_client or not NOTION_DATABASE_ID:
+        return ""
+        
+    try:
+        # 최근 10분 이내에 생성된 락이 있는지 확인 (데드락 방지)
+        now = datetime.now()
+        ten_mins_ago = (now - timedelta(minutes=10)).isoformat() + "+09:00"
+        
+        response = notion_client.databases.query(
+            **{
+                "database_id": NOTION_DATABASE_ID,
+                "filter": {
+                    "and": [
+                        {
+                            "property": "주제",
+                            "title": {
+                                "equals": "[SYSTEM] Generating..."
+                            }
+                        },
+                        {
+                            "timestamp": "created_time",
+                            "created_time": {
+                                "on_or_after": ten_mins_ago
+                            }
+                        }
+                    ]
+                }
+            }
+        )
+        
+        if response.get("results"):
+            logging.warning("접근 거부: 이미 다른 기사 생성 프로세스가 실행 중입니다.")
+            return "" # 락 획득 실패 (이미 진행 중)
+            
+        # 락 획득 성공 시 락 페이지 생성
+        new_page = notion_client.pages.create(
+            parent={"database_id": NOTION_DATABASE_ID},
+            properties={
+                "주제": {
+                    "title": [
+                        {"text": {"content": "[SYSTEM] Generating..."}}
+                    ]
+                },
+                "상태": {
+                    "multi_select": [
+                        {"name": "AI 작성 완료"}
+                    ]
+                }
+            }
+        )
+        logging.info(f"Notion Lock 획득 성공 (Page ID: {new_page['id']})")
+        return new_page['id']
+        
+    except Exception as e:
+        logging.error(f"Notion Lock 확인 중 오류 발생: {e}")
+        # 락 검사 실패 시 안정성을 위해 일단 빈 문자열 반환 (작업 차단)
+        return ""
+
+def release_lock(page_id: str):
+    """지정된 page_id의 Notion Lock 문서를 영구 삭제(Archive)하여 락을 해제합니다."""
+    if not page_id or not notion_client:
+        return
+        
+    try:
+        notion_client.pages.update(
+            page_id=page_id,
+            archived=True
+        )
+        logging.info("Notion Lock 해제 완료")
+    except Exception as e:
+        logging.error(f"Notion Lock 해제 실패: {e}")
+
 
 # ---------------------------------------------------------------------------
 # 4. 핵심 AI 생성 로직
@@ -429,7 +509,13 @@ def upload_to_notion(content_dict: Dict[str, Any], topic_title: str):
 # ---------------------------------------------------------------------------
 def run_engine() -> Dict[str, Any]:
     """서버리스 API 호출을 위한 진입점입니다. 성공/실패 여부를 반환합니다."""
+    lock_id = ""
     try:
+        # 0. 동시성 제어 락 획득
+        lock_id = acquire_lock()
+        if not lock_id:
+            return {"status": "error", "message": "현재 기사를 생성 중입니다. 잠시 후 1~2분 뒤에 다시 시도해주세요."}
+            
         # 1. 로컬 브랜드 가이드 및 샘플 읽기 (api 폴더 밖의 루트 파일)
         brand_id_text = read_local_context("brand_identity.md")
         sample_text = read_local_context("sample_article.md")
@@ -461,6 +547,10 @@ def run_engine() -> Dict[str, Any]:
         error_msg = str(e)
         logging.error(f"파이프라인 실행 중 오류: {error_msg}")
         return {"status": "error", "message": error_msg}
+    finally:
+        # 락 반납
+        if lock_id:
+            release_lock(lock_id)
 
 if __name__ == "__main__":
     # 로컬 터미널에서의 강제 실행용
