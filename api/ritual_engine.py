@@ -310,16 +310,15 @@ def get_past_notion_data(limit: int = 50) -> tuple[str, list]:
     banned_topics_text = ", ".join(set(banned_topics)) if banned_topics else "최근 발행된 주제가 없습니다."
     return banned_topics_text, past_urls
 
-def acquire_lock() -> str:
+def acquire_lock() -> tuple[str, str]:
     """
     Notion 문서 기반 분산 락을 획득합니다.
     [SYSTEM] Generating... 이라는 제목의 페이지가 존재하면 다른 프로세스가 작업 중인 것으로 판단합니다.
-    락을 획득하면 생성한 페이지의 ID를 반환하고, 실패하면 빈 문자열을 반환합니다.
-    만약 이전 락이 10분 이상 지났다면 데드락으로 간주하고 강제로 덮어씁니다/무시합니다.
+    (page_id, error_string) 형태의 튜플을 반환합니다.
     """
     logging.info("동시성 제어: Notion Lock 확인 중...")
     if not notion_client or not NOTION_DATABASE_ID:
-        return ""
+        return "", "NOTION_CLIENT_NOT_INITIALIZED"
         
     try:
         from datetime import timezone
@@ -353,7 +352,7 @@ def acquire_lock() -> str:
         
         if response.get("results"):
             logging.warning("접근 거부: 이미 다른 기사 생성 프로세스가 실행 중입니다.")
-            return "" # 락 획득 실패 (이미 진행 중)
+            return "", "LOCK_EXISTS"
             
         # 락 획득 성공 시 락 페이지 생성
         new_page = notion_client.pages.create(
@@ -372,12 +371,11 @@ def acquire_lock() -> str:
             }
         )
         logging.info(f"Notion Lock 획득 성공 (Page ID: {new_page['id']})")
-        return new_page['id']
+        return new_page['id'], ""
         
     except Exception as e:
         logging.error(f"Notion Lock 확인 중 오류 발생: {e}")
-        # 락 검사 실패 시 안정성을 위해 일단 빈 문자열 반환 (작업 차단)
-        return ""
+        return "", str(e)
 
 def release_lock(page_id: str):
     """지정된 page_id의 Notion Lock 문서를 영구 삭제(Archive)하여 락을 해제합니다."""
@@ -603,9 +601,12 @@ def run_engine() -> Dict[str, Any]:
     lock_id = ""
     try:
         # 0. 동시성 제어 락 획득
-        lock_id = acquire_lock()
+        lock_id, lock_err = acquire_lock()
         if not lock_id:
-            return {"status": "error", "message": "현재 기사를 생성 중입니다. 잠시 후 1~2분 뒤에 다시 시도해주세요."}
+            if lock_err == "LOCK_EXISTS":
+                return {"status": "error", "message": "현재 기사를 생성 중입니다. 잠시 후 1~2분 뒤에 다시 시도해주세요."}
+            else:
+                return {"status": "error", "message": f"Lock Error: {lock_err}"}
             
         # 1. 로컬 브랜드 가이드 및 샘플 읽기 (api 폴더 밖의 루트 파일)
         brand_id_text = read_local_context("brand_identity.md")
