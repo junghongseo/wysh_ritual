@@ -145,9 +145,9 @@ def scrape_article_text(url: str) -> str:
         logging.warning(f"기사 스크래핑 실패 ({url}): {e}")
         return ""
 
-def scrape_premium_rss_feeds(limit_per_feed: int = 2, exclude_urls: list = None) -> tuple:
-    """글로벌 최고급 웰니스 매거진의 RSS 피드를 파싱하고 본문을 통째로 긁어옵니다."""
-    logging.info("프리미엄 매거진 RSS 스크래핑 시작...")
+def scrape_premium_rss_feeds(limit_per_feed: int = 2, exclude_urls: list = None, target_category: str = "") -> tuple:
+    """글로벌 최고급 웰니스 매거진의 식음료/영양 관련 RSS 피드를 파싱하고 본문을 통째로 긁어옵니다."""
+    logging.info("푸드/영양 특화 매거진 RSS 스크래핑 시작...")
     
     if exclude_urls is None:
         exclude_urls = []
@@ -155,65 +155,23 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2, exclude_urls: list = None)
     # User-Agent 위장 (일부 사이트 봇 타겟팅 차단 우회)
     feedparser.USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.0.0 Safari/537.36"
     
-    # 대표적인 글로벌 프리미엄 웰니스/라이프스타일 매거진 RSS 목록
-    rss_urls = [
-        "https://rss.nytimes.com/services/xml/rss/nyt/Well.xml",  # NYT Well
-        "https://www.theguardian.com/lifeandstyle/health-and-wellbeing/rss", # Guardian Wellness
-        "https://www.mindbodygreen.com/rss/feed.xml", # MindBodyGreen (권위있는 웰니스 미디어)
-        "https://www.wellandgood.com/feed/", # Well+Good (트렌디 피트니스 & 뷰티)
-        "https://www.vogue.com/feed/beauty/rss", # Vogue Beauty & Wellness
-        "https://www.womenshealthmag.com/rss/all.xml", # Women's Health
-        "https://www.menshealth.com/rss/all.xml", # Men's Health
-        "https://www.harpersbazaar.com/rss/all.xml", # Harper's Bazaar
-        "https://www.esquire.com/rss/all.xml", # Esquire
-        "https://www.elle.com/rss/all.xml", # Elle
-        "https://www.vanityfair.com/feed/style/rss", # Vanity Fair Style
-        "https://www.allure.com/feed/wellness/rss", # Allure Wellness
-        "https://www.cosmopolitan.com/rss/health-fitness.xml", # Cosmopolitan Health
-        "https://www.refinery29.com/en-us/wellness/rss.xml", # Refinery29 Wellness
-        "https://www.self.com/feed/rss", # Self Magazine
-        "https://www.yogajournal.com/feed/", # Yoga Journal
-        "https://www.runnersworld.com/rss/all.xml", # Runner's World
-        "https://www.outsideonline.com/health/wellness/feed/", # Outside Magazine
-        "https://mindful.org/feed/" # Mindful.org
-    ]
-    
-    # [추가] 2. 글로벌 웰니스 선진국의 현지 언어 구글 뉴스 RSS (실시간 트렌드)
-    # 구글 뉴스 RSS 포맷: https://news.google.com/rss/search?q={query}&hl={lang}&gl={country}&ceid={country}:{lang}
-    global_news_rss = [
-        # 프랑스 (프랑스어) - bien-être(웰니스), tendance(트렌드), mode de vie(라이프스타일)
-        "https://news.google.com/rss/search?q=bien-%C3%AAtre+tendance+mode+de+vie&hl=fr&gl=FR&ceid=FR:fr",
-        # 프랑스 미식 웰니스 (영양, 슈퍼푸드)
+    # 식음료, 다이어트, 영양, 푸드 트렌드 전용 RSS 피드
+    food_focused_rss_urls = [
+        "https://www.womenshealthmag.com/rss/all.xml", # 다이어트/영양 특화
+        "https://www.menshealth.com/rss/all.xml", # 단백질/근성장 식단 특화
         "https://news.google.com/rss/search?q=superaliments+nutrition+tendance&hl=fr&gl=FR&ceid=FR:fr",
-        
-        # 일본 (일본어) - ウェルネス(웰니스), トレンド(트렌드), ライフスタイル(라이프스타일)
-        "https://news.google.com/rss/search?q=%E3%82%A6%E3%82%A7%E3%83%AB%E3%83%8D%E3%82%B9+%E3%83%88%E3%83%AC%E3%83%B3%E3%83%89+%E3%83%A9%E3%82%A4%E3%83%95%E3%82%B9%E3%82%BF%E3%82%A4%E3%83%AB&hl=ja&gl=JP&ceid=JP:ja",
-        # 일본 다이어트/슈퍼푸드 (スーパーフード ダイエット)
         "https://news.google.com/rss/search?q=%E3%82%B9%E3%83%BC%E3%83%91%E3%83%BC%E3%83%95%E3%83%BC%E3%83%89+%E3%83%80%E3%82%A4%E3%82%A8%E3%83%83%E3%83%88+%E3%83%88%E3%83%AC%E3%83%B3%E3%83%89&hl=ja&gl=JP&ceid=JP:ja",
-        
-        # 독일 (독일어) - Wellness, Trend, Lebensstil
-        "https://news.google.com/rss/search?q=Wellness+Trend+Lebensstil&hl=de&gl=DE&ceid=DE:de",
-        # 독일 영양/비건 트렌드
         "https://news.google.com/rss/search?q=Ern%C3%A4hrung+Superfood+Vegan+Trend&hl=de&gl=DE&ceid=DE:de",
-        
-        # 스웨덴/북유럽 (스웨덴어) - hälsa(건강/웰니스), trend
-        "https://news.google.com/rss/search?q=h%C3%A4lsa+wellness+trend&hl=sv&gl=SE&ceid=SE:sv",
-        # 스웨덴 식단/건강식
         "https://news.google.com/rss/search?q=kost+n%C3%A4ring+superfood+trend&hl=sv&gl=SE&ceid=SE:sv",
-        
-        # 한국 (한국어) - 웰니스, 라이프스타일, 트렌드
-        "https://news.google.com/rss/search?q=%EC%9B%B0%EB%8B%88%EC%8A%A4+%EB%9D%BC%EC%9D%B4%ED%94%84%EC%8A%A4%ED%83%80%EC%9D%BC+%ED%8A%B8%EB%88%8C%EB%93%9C&hl=ko&gl=KR&ceid=KR:ko",
-        # 한국 식음료/이너뷰티
         "https://news.google.com/rss/search?q=%EC%8A%88%ED%8D%BC%ED%91%B8%EB%93%9C+%EC%8B%9D%EB%8B%A8+%EC%98%81%EC%96%91+%EC%9D%B4%EB%84%88%EB%B7%B0%ED%8B%B0+%ED%8A%B8%EB%88%8C%EB%93%9C&hl=ko&gl=KR&ceid=KR:ko",
-        
-        # 글로벌 영미권 식음료 전용
         "https://news.google.com/rss/search?q=superfood+nutrition+diet+trend&hl=en-US&gl=US&ceid=US:en"
     ]
     
-    rss_urls.extend(global_news_rss)
-    
-    # [핵심] 매 실행마다 국가별 기사가 상단에 잡힐 확률을 공평하게 하기 위해 셔플링
     import random
+    
+    # 이제 일반 피드 없이, 무조건 푸드 특화 피드 안에서만 고릅니다.
+    rss_urls = list(food_focused_rss_urls)
+
     random.shuffle(rss_urls)
     
     # [알림] Vercel Serverless Function 타임아웃(무료 요금제 10초 제한) 방지를 위해,
@@ -621,7 +579,7 @@ def run_engine() -> Dict[str, Any]:
         logging.info(f"🎯 [타겟 고정] 이번 호 카테고리: {target_category}")
 
         # 3. 글로벌 웰니스/라이프스타일 매거진 RSS 통째 본문 스크래핑 (타임아웃 방지를 위해 피드당 1개 기사만)
-        scraped_trends, source_links = scrape_premium_rss_feeds(limit_per_feed=1, exclude_urls=past_urls)
+        scraped_trends, source_links = scrape_premium_rss_feeds(limit_per_feed=1, exclude_urls=past_urls, target_category=target_category)
         
         # 4. 1단계: AI 데스크팅 (타겟 카테고리에 맞는 안전한 기사 선별)
         safe_trend_data = select_safe_article_with_ai(scraped_trends, past_topics_text, target_category)
