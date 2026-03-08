@@ -30,7 +30,7 @@ if not all([GEMINI_API_KEY, NOTION_TOKEN, NOTION_DATABASE_ID]):
 
 # 클라이언트 초기화
 gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
-notion_client = Client(auth=NOTION_TOKEN) if NOTION_TOKEN else None
+notion = Client(auth=NOTION_TOKEN) if NOTION_TOKEN else None
 
 
 # ---------------------------------------------------------------------------
@@ -265,7 +265,7 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2, exclude_urls: list = None)
 def get_past_notion_data(limit: int = 50) -> tuple[str, list]:
     """노션 데이터베이스에서 최근 발행된 주제(Title) 내의 [핵심 주제]와 참고 링크 목록을 가져옵니다."""
     logging.info("노션 과거 발행 이력 조회 시작...")
-    if not notion_client or not NOTION_DATABASE_ID:
+    if not notion or not NOTION_DATABASE_ID:
         return "노션 설정이 없어 과거 이력을 조회할 수 없습니다.", []
         
     banned_topics = []
@@ -273,7 +273,7 @@ def get_past_notion_data(limit: int = 50) -> tuple[str, list]:
     import re
     try:
         # 최근 생성일 기준으로 정렬하여 가져오기
-        response = notion_client.databases.query(
+        response = notion.databases.query(
             **{
                 "database_id": NOTION_DATABASE_ID,
                 "page_size": limit,
@@ -317,7 +317,7 @@ def acquire_lock() -> tuple[str, str]:
     (page_id, error_string) 형태의 튜플을 반환합니다.
     """
     logging.info("동시성 제어: Notion Lock 확인 중...")
-    if not notion_client or not NOTION_DATABASE_ID:
+    if not notion or not NOTION_DATABASE_ID:
         return "", "NOTION_CLIENT_NOT_INITIALIZED"
         
     try:
@@ -328,7 +328,7 @@ def acquire_lock() -> tuple[str, str]:
         now_kst = datetime.now(kst)
         ten_mins_ago = (now_kst - timedelta(minutes=10)).isoformat()
         
-        response = notion_client.databases.query(
+        response = notion.databases.query(
             **{
                 "database_id": NOTION_DATABASE_ID,
                 "filter": {
@@ -355,7 +355,7 @@ def acquire_lock() -> tuple[str, str]:
             return "", "LOCK_EXISTS"
             
         # 락 획득 성공 시 락 페이지 생성
-        new_page = notion_client.pages.create(
+        new_page = notion.pages.create(
             parent={"database_id": NOTION_DATABASE_ID},
             properties={
                 "주제": {
@@ -379,11 +379,11 @@ def acquire_lock() -> tuple[str, str]:
 
 def release_lock(page_id: str):
     """지정된 page_id의 Notion Lock 문서를 영구 삭제(Archive)하여 락을 해제합니다."""
-    if not page_id or not notion_client:
+    if not page_id or not notion:
         return
         
     try:
-        notion_client.pages.update(
+        notion.pages.update(
             page_id=page_id,
             archived=True
         )
@@ -507,7 +507,7 @@ def upload_to_notion(content_dict: Dict[str, Any], topic_title: str):
     """생성된 콘텐츠와 AI가 직접 필터링한 참고 링크를 노션 데이터베이스에 적재합니다."""
     logging.info("Notion 대시보드 적재 시작...")
     
-    if not notion_client or not NOTION_DATABASE_ID:
+    if not notion or not NOTION_DATABASE_ID:
         raise ValueError("Notion API Token 또는 Database ID가 설정되지 않았습니다.")
 
     # 발송 예정일 계산 (다음 주 화요일 오전 8시)
@@ -540,7 +540,7 @@ def upload_to_notion(content_dict: Dict[str, Any], topic_title: str):
         rich_text_links = [{"text": {"content": "참고 링크 없음"}}]
     
     try:
-        new_page = notion_client.pages.create(
+        new_page = notion.pages.create(
             parent={"database_id": NOTION_DATABASE_ID},
             properties={
                 "주제": {
