@@ -150,12 +150,8 @@
 
         // 로딩 시 표출될 메시지 배열
         const loadingMessages = [
-            "글로벌 푸드/영양 매거진 및 트렌드 뉴스 통신 연결 중...",
-            "최신 아티클 원문 파싱 및 수집 중...",
-            "노션 과거 발행 이력 조회 중...",
-            "Gemini 호출: 핫한 푸드 브랜드 발굴 및 구글 팩트체크 진행 중...",
-            "카톡 초안, 마이크로 아티클(캐러셀), 웹 아티클 포맷팅 중...",
-            "거의 다 되었습니다. 노션 대시보드 적재 중..."
+            "GitHub 클라우드 로봇에게 핑(Ping) 전송 중...",
+            "AI 에디터 작업 지시서 전달 중..."
         ];
 
         let messageInterval;
@@ -202,7 +198,7 @@
                     statusMsg.style.opacity = 0; // 메시지 업데이트 브리징을 위한 초기화 투명도
                     setTimeout(() => {
                         if (result.status === 'success') {
-                            statusMsg.innerHTML = `✅ <b>성공!</b> ${result.message}`;
+                            statusMsg.innerHTML = `✅ <b>전송 완료!</b><br>로봇 에디터가 클라우드에서 기사 작성을 시작했습니다.<br>약 3분 뒤 노션에서 확인해주세요!`;
                             statusMsg.className = 'visible success';
                         } else {
                             statusMsg.innerHTML = `❌ <b>오류 발생:</b> ${result.message}`;
