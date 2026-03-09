@@ -1,3 +1,6 @@
+from http.server import BaseHTTPRequestHandler
+import json
+import logging
 import os
 import urllib.request
 import urllib.error
@@ -34,6 +37,7 @@ class handler(BaseHTTPRequestHandler):
         req = urllib.request.Request(api_url, data=data, method="POST")
         req.add_header("Accept", "application/vnd.github.v3+json")
         req.add_header("Authorization", f"token {github_token}")
+        req.add_header("User-Agent", "Wysh-Ritual-Vercel-App")
         
         try:
             with urllib.request.urlopen(req) as response:
