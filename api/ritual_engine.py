@@ -129,7 +129,7 @@ def read_local_context(file_path: str) -> str:
         logging.error(f"로컬 파일 읽기 실패 ({full_path}): {e}")
         return ""
 
-def scrape_premium_rss_feeds(limit_per_feed: int = 2, exclude_urls: list = None, target_category: str = "") -> tuple:
+def scrape_premium_rss_feeds(limit_per_feed: int = 4, exclude_urls: list = None, target_category: str = "") -> tuple:
     """글로벌 최고급 웰니스 매거진의 식음료/영양 관련 RSS 피드를 파싱하고 본문을 통째로 긁어옵니다."""
     logging.info("푸드/영양 특화 매거진 RSS 스크래핑 시작...")
     
@@ -140,6 +140,7 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2, exclude_urls: list = None,
     feedparser.USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.0.0 Safari/537.36"
     
     # 식음료, 다이어트, 영양, 푸드 트렌드 전용 Bing 메인 뉴스 RSS 피드 (자바스크립트 우회 차단 없음)
+    # GitHub Actions 환경이므로 피드 개수를 대폭 늘림 (다양한 검색어)
     food_focused_rss_urls = [
         "https://www.bing.com/news/search?q=superaliments+nutrition+tendance+marque&format=rss&mkt=fr-fr",
         "https://www.bing.com/news/search?q=%E3%82%B9%E3%83%BC%E3%83%91%E3%83%BC%E3%83%95%E3%83%BC%E3%83%89+%E3%83%80%E3%82%A4%E3%82%A8%E3%83%83%E3%83%88+%E9%A3%9F%E5%93%81+%E3%83%96%E3%83%A9%E3%83%B3%E3%83%89&format=rss&mkt=ja-jp",
@@ -147,8 +148,15 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2, exclude_urls: list = None,
         "https://www.bing.com/news/search?q=kost+n%C3%A4ring+superfood+varum%C3%A4rke+trend&format=rss&mkt=sv-se",
         "https://www.bing.com/news/search?q=%EC%8A%88%ED%8D%BC%ED%91%B8%EB%93%9C+%EC%8B%9D%EB%8B%A8+%EC%98%81%EC%96%91+%ED%91%B8%EB%93%9C+%EB%B8%8C%EB%9E%9C%EB%93%9C+%ED%8A%B8%EB%88%8C%EB%93%9C&format=rss&mkt=ko-kr",
         "https://www.bing.com/news/search?q=trendy+food+brands+wellness+startup+nutrition&format=rss&mkt=en-us",
-        "https://www.bing.com/news/search?q=superfood+nutrition+diet+trend+food+brand&format=rss&mkt=en-us",
-        "https://www.bing.com/news/search?q=new+vegan+snack+brand+trends&format=rss&mkt=en-us"
+        "https://www.bing.com/news/search?q=women+wellness+trends+fitness+diet+brand&format=rss&mkt=en-us",
+        "https://www.bing.com/news/search?q=biohacking+diet+longevity+brand+women&format=rss&mkt=en-us",
+        "https://www.bing.com/news/search?q=mental+health+wellness+diet+startup+trend+food&format=rss&mkt=en-us",
+        "https://www.bing.com/news/search?q=gut+microbiome+food+startup+women+health&format=rss&mkt=en-us",
+        "https://www.bing.com/news/search?q=low+sugar+revolution+snacks+startups&format=rss&mkt=en-us",
+        "https://www.bing.com/news/search?q=upcycled+food+nutrition+brand+trend&format=rss&mkt=en-us",
+        "https://www.bing.com/news/search?q=adaptogenic+drinks+wellness+startup&format=rss&mkt=en-us",
+        "https://www.bing.com/news/search?q=regenerative+agriculture+brand+food+trend&format=rss&mkt=en-us",
+        "https://www.bing.com/news/search?q=functional+foods+longevity+women+health&format=rss&mkt=en-us"
     ]
     
     import random
@@ -156,8 +164,8 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2, exclude_urls: list = None,
     rss_urls = list(food_focused_rss_urls)
     random.shuffle(rss_urls)
     
-    # 여러 피드에서 제목만 빠르게 가져오므로, 전체 8개 리스트에서 4~5개 피드만 검사하여 속도를 확보합니다.
-    rss_urls = rss_urls[:5]
+    # GitHub Action은 6시간 리밋이므로 기존 5개에서 10~15개 피드 전부 안전하게 검사하여 소스 풀을 대규모 확장
+    rss_urls = rss_urls[:12]
     
     results_text = ""
     urls_list = []
@@ -350,13 +358,14 @@ def select_safe_article_with_ai(scraped_titles: str, past_topics: str, target_ca
 이번 발행 호의 최우선 타겟 카테고리는 **[{target_category}]** 입니다.
 
 아래 <new_articles>는 오늘 새로 수집된 글로벌 소스들입니다.
-이 중에서 반드시 **[{target_category}]** 카테고리에 가장 완벽히 부합하면서도, 
-<past_topics>에 리스트업된 과거 금지 주제들과는 완전히 동떨어진 가장 신선하고 영감이 되는 최우선 순위 기사 제목을 **딱 3개(1순위, 2순위, 3순위)** 골라 배열 형태로 반환해주세요.
+이 중에서 반드시 **[{target_category}]** 카테고리에 완벽히 부합하면서도, 
+<past_topics>에 리스트업된 과거 식상한 주제들과는 '완전히 결이 다른', 가장 파격적이고 신선한 영감이 되는 기사 제목을 딱 3개(1순위, 2순위, 3순위) 골라주세요.
 
-**[극도로 중요: 유연한 중복 회피 및 3개 필수 반환]**
-<past_topics>에 리스트업된 키워드(예: '업사이클 푸드', '비건' 등)를 해당 외국어 원문으로 번역해보았을 때, <new_articles_titles> 중 가급적 겹치지 않는 소재를 최우선으로 찾으십시오.
-하지만 만약 40개의 모든 뉴스 후보군이 어떻게든 과거 이력과 조금이라도 겹치는 카테고리(예: 영양, 다이어트) 안에 들어있다면, **절대 빈 배열을 반환하지 마십시오.** 
-그럴 경우엔 그나마 **가장 새로운 브랜드/스타트업이나 완전히 신선한 각도(Angle)**를 제시한 기사를 차선책으로라도 골라서 **무조건 3개를 꽉 채워서(1순위, 2순위, 3순위)** 반환해야 합니다. 빈 배열 반환은 치명적 오류로 간주됩니다!
+**[극도로 중요한 룰: 과거 반복 금지(Duplicate Penalty)]**
+<past_topics>에 명시된 키워드(예: '비건', '식물성', 'CGM', '혈당', '모치무기', '맞춤형 영양제' 등)와 주제적으로 단 1%라도 겹치는 기사는 무조건 탈락시키십시오.
+예를 들어 과거 이력에 '혈당'이 있다면, 오늘 수집된 40개의 기사 중에 '당뇨', '혈당 스파이크', '저당' 관련 뉴스는 아무리 매력적이어도 모두 제외해야 합니다.
+
+만역 수집된 <new_articles_titles> 중 거의 대부분이 쓰레기거나 겹치는 것 같이 느껴지더라도, 그중 가장 '과거와 안 겹치는' 독특한 틈새(Niche) 브랜드나 엉뚱한 웰니스 식재료(예약하기 힘든 파인다이닝의 푸드 트렌드, 우주비행사 식단에서 온 트렌드 등)를 찾아내 3개를 반드시 뽑아내야 합니다.
 
 <past_topics>
 {past_topics}
@@ -366,7 +375,7 @@ def select_safe_article_with_ai(scraped_titles: str, past_topics: str, target_ca
 {scraped_titles}
 </new_articles_titles>
 
-선택한 3개의 기사 배열에 대해 각각 원문 제목(title), 원문 URL(source_url), 그리고 완벽하게 과거 중복을 피하고 새로운 트렌드를 제시했다는 선택 이유(reason)를 JSON으로 설명해주세요.
+선택한 3개의 기사 배열에 대해 각각 원문 제목(title), 원문 URL(source_url), 그리고 완벽하게 과거 중복을 피하고 새로운 트렌드를 제시했다는 구체적인 선택 이유(reason)를 JSON으로 설명해주세요.
 """
     try:
         response = gemini_client.models.generate_content(
