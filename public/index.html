@@ -118,6 +118,10 @@
             opacity: 1;
         }
 
+        #status-message.hidden {
+            opacity: 0;
+        }
+
         .success {
             color: #4CAF50 !important;
         }
@@ -166,13 +170,25 @@
             btn.disabled = true;
             statusMsg.className = 'visible';
 
-            // 상태 메시지 로테이션 애니메이션
+            // 상태 메시지 로테이션 애니메이션 (페이드 효과 추가)
             let msgIndex = 0;
             statusMsg.textContent = loadingMessages[0];
+
             messageInterval = setInterval(() => {
-                msgIndex = (msgIndex + 1) % loadingMessages.length;
-                statusMsg.textContent = loadingMessages[msgIndex];
-            }, 6000); // 6초마다 메시지 변경
+                // 1. 먼저 글자를 서서히 숨김 (페이드아웃)
+                statusMsg.classList.remove('visible');
+                statusMsg.classList.add('hidden');
+
+                setTimeout(() => {
+                    // 2. 0.5초 뒤 글자가 완전히 안 보일 때 내용 투입
+                    msgIndex = (msgIndex + 1) % loadingMessages.length;
+                    statusMsg.textContent = loadingMessages[msgIndex];
+
+                    // 3. 다시 글자를 서서히 나타나게 함 (페이드인)
+                    statusMsg.classList.remove('hidden');
+                    statusMsg.classList.add('visible');
+                }, 500); // CSS 트랜지션 시간(0.5s)과 동일하게 맞춤
+            }, 6000); // 6초마다 메시지 변경 이벤트 발생
 
             try {
                 // Vercel Serverless Function 호출
