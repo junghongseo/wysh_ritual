@@ -371,9 +371,10 @@ def select_safe_article_with_ai(scraped_titles: str, past_topics: str, target_ca
 이 중에서 반드시 **[{target_category}]** 카테고리에 가장 완벽히 부합하면서도, 
 <past_topics>에 리스트업된 과거 금지 주제들과는 완전히 동떨어진 가장 신선하고 영감이 되는 최우선 순위 기사 제목을 **딱 3개(1순위, 2순위, 3순위)** 골라 배열 형태로 반환해주세요.
 
-**[절대 엄수 금지사항: 중복 회피]**
-<past_topics>에 리스트업된 키워드(예: '업사이클 푸드', '에코 푸드', '비건' 등)를 해당 외국어 원문으로 번역해보았을 때, <new_articles_titles> 중 조금이라도 이와 비슷한 주제(예: Upcycled Food, Food waste 등)를 다루는 기사 제목이 있다면 **무조건 3개의 후보군에서 전부 탈락**시키십시오.
-과거 주제와 단 1%라도 겹치는 기사를 고르기보다는, 차라리 타겟 카테고리에 조금 덜 맞더라도 완벽히 다른 신선한 소재의 푸드 브랜드/트렌드 기사를 우선순위로 고르십시오.
+**[극도로 중요: 유연한 중복 회피 및 3개 필수 반환]**
+<past_topics>에 리스트업된 키워드(예: '업사이클 푸드', '비건' 등)를 해당 외국어 원문으로 번역해보았을 때, <new_articles_titles> 중 가급적 겹치지 않는 소재를 최우선으로 찾으십시오.
+하지만 만약 40개의 모든 뉴스 후보군이 어떻게든 과거 이력과 조금이라도 겹치는 카테고리(예: 영양, 다이어트) 안에 들어있다면, **절대 빈 배열을 반환하지 마십시오.** 
+그럴 경우엔 그나마 **가장 새로운 브랜드/스타트업이나 완전히 신선한 각도(Angle)**를 제시한 기사를 차선책으로라도 골라서 **무조건 3개를 꽉 채워서(1순위, 2순위, 3순위)** 반환해야 합니다. 빈 배열 반환은 치명적 오류로 간주됩니다!
 
 <past_topics>
 {past_topics}
@@ -593,8 +594,8 @@ def run_engine() -> Dict[str, Any]:
         selected_articles_dict = select_safe_article_with_ai(scraped_titles, past_topics_text, target_category)
         candidates = selected_articles_dict.get("articles", [])
         
-        if not candidates:
-            raise ValueError("AI 데스크팅 단계에서 유효한 기사 후보 3개를 선정하지 못했습니다.")
+        if not candidates or len(candidates) == 0:
+            raise ValueError("AI 데스크팅 단계에서 단 1개의 유효한 기사 후보도 선정하지 못했습니다. (프롬프트 과도한 제어로 인한 빈 배열 반환)")
             
         logging.info(f"선별된 {len(candidates)}개의 기사 후보를 바탕으로 안전망(Fallback) 스크래핑 루프 시작...")
         
