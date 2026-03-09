@@ -713,8 +713,11 @@ def run_engine() -> Dict[str, Any]:
         # 락 반납
         if lock_id:
             release_lock(lock_id)
+import sys
 
 if __name__ == "__main__":
-    # 로컬 터미널에서의 강제 실행용
+    # 로컬 터미널 및 GitHub Actions 실행용
     res = run_engine()
     print(res)
+    if isinstance(res, dict) and res.get("status") == "error":
+        sys.exit(1)
