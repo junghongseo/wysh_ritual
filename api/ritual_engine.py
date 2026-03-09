@@ -158,22 +158,22 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2, exclude_urls: list = None,
     # User-Agent 위장 (일부 사이트 봇 타겟팅 차단 우회)
     feedparser.USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.0.0 Safari/537.36"
     
-    # 식음료, 다이어트, 영양, 푸드 트렌드 전용 구글 뉴스 RSS 피드 (성/관계 등 잡음 차단)
+    # 식음료, 다이어트, 영양, 푸드 트렌드 전용 Bing 메인 뉴스 RSS 피드 (자바스크립트 우회 차단 없음)
     food_focused_rss_urls = [
         # 프랑스 미식 웰니스 (영양, 슈퍼푸드, 푸드 브랜드)
-        "https://news.google.com/rss/search?q=superaliments+nutrition+tendance+marque&hl=fr&gl=FR&ceid=FR:fr",
+        "https://www.bing.com/news/search?q=superaliments+nutrition+tendance+marque&format=rss&mkt=fr-fr",
         # 일본 다이어트/슈퍼푸드/푸드 브랜드 트렌드
-        "https://news.google.com/rss/search?q=%E3%82%B9%E3%83%BC%E3%83%91%E3%83%BC%E3%83%95%E3%83%BC%E3%83%89+%E3%83%80%E3%82%A4%E3%82%A8%E3%83%83%E3%83%88+%E9%A3%9F%E5%93%81+%E3%83%96%E3%83%A9%E3%83%B3%E3%83%89&hl=ja&gl=JP&ceid=JP:ja",
+        "https://www.bing.com/news/search?q=%E3%82%B9%E3%83%BC%E3%83%91%E3%83%BC%E3%83%95%E3%83%BC%E3%83%89+%E3%83%80%E3%82%A4%E3%82%A8%E3%83%83%E3%83%88+%E9%A3%9F%E5%93%81+%E3%83%96%E3%83%A9%E3%83%B3%E3%83%89&format=rss&mkt=ja-jp",
         # 독일 영양/비건 트렌드/푸드 스타트업
-        "https://news.google.com/rss/search?q=Ern%C3%A4hrung+Superfood+Vegan+Startup+Brand&hl=de&gl=DE&ceid=DE:de",
+        "https://www.bing.com/news/search?q=Ern%C3%A4hrung+Superfood+Vegan+Startup+Brand&format=rss&mkt=de-de",
         # 스웨덴 식단/건강식 브랜드
-        "https://news.google.com/rss/search?q=kost+n%C3%A4ring+superfood+varum%C3%A4rke+trend&hl=sv&gl=SE&ceid=SE:sv",
+        "https://www.bing.com/news/search?q=kost+n%C3%A4ring+superfood+varum%C3%A4rke+trend&format=rss&mkt=sv-se",
         # 한국 식음료/이너뷰티 브랜드 트렌드
-        "https://news.google.com/rss/search?q=%EC%8A%88%ED%8D%BC%ED%91%B8%EB%93%9C+%EC%8B%9D%EB%8B%A8+%EC%98%81%EC%96%91+%ED%91%B8%EB%93%9C+%EB%B8%8C%EB%9E%9C%EB%93%9C+%ED%8A%B8%EB%88%8C%EB%93%9C&hl=ko&gl=KR&ceid=KR:ko",
+        "https://www.bing.com/news/search?q=%EC%8A%88%ED%8D%BC%ED%91%B8%EB%93%9C+%EC%8B%9D%EB%8B%A8+%EC%98%81%EC%96%91+%ED%91%B8%EB%93%9C+%EB%B8%8C%EB%9E%9C%EB%93%9C+%ED%8A%B8%EB%88%8C%EB%93%9C&format=rss&mkt=ko-kr",
         # 글로벌 영미권 식음료 전용 (가장 중요: trendy food brands, wellness startups)
-        "https://news.google.com/rss/search?q=trendy+food+brands+wellness+startup+nutrition&hl=en-US&gl=US&ceid=US:en",
-        "https://news.google.com/rss/search?q=superfood+nutrition+diet+trend+food+brand&hl=en-US&gl=US&ceid=US:en",
-        "https://news.google.com/rss/search?q=new+vegan+snack+brand+trends&hl=en-US&gl=US&ceid=US:en"
+        "https://www.bing.com/news/search?q=trendy+food+brands+wellness+startup+nutrition&format=rss&mkt=en-us",
+        "https://www.bing.com/news/search?q=superfood+nutrition+diet+trend+food+brand&format=rss&mkt=en-us",
+        "https://www.bing.com/news/search?q=new+vegan+snack+brand+trends&format=rss&mkt=en-us"
     ]
     
     import random
