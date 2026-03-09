@@ -83,6 +83,7 @@ SYSTEM_PROMPT = """
   특정 도시가 원문에 명확하게 언급되지 않았다면, 그 트렌드를 임의의 도시와 억지로 엮어내지 마십시오. 세대, 성별 혹은 글로벌 차원의 넓은 관점에서 서술하십시오.
   반드시 소스 기사나 구글 검색에서 "이러한 현상이 실제 트렌드로 자리잡고 있다"는 구체적인 근거가 있을 때만 해당 내용을 작성하십시오.
 - **[실천을 위한 팁 (Actionable Tips)]**: 단순히 지식과 트렌드를 전달하는 데 그치지 마십시오. 독자가 글을 다 읽은 내일 아침, 당장 자기 방에서 혹은 식탁에서 무엇을 어떻게 시도해 볼 수 있는지, 비용이 들지 않는 작고 구체적이며 현실적인(Actionable) 행동 지침을 포함하십시오.
+- **[요즘 핫한 푸드 브랜드 및 제품 추천 (Brand Discovery)]**: **[매우 중요]** 트렌드 설명에만 그치지 말고, 해당 트렌드를 리드하고 있는 **실제 글로벌/로컬의 핫한 푸드 브랜드, 혁신적인 스타트업, 또는 구체적인 제품 사례**를 구글 검색을 통해 적극적으로 발굴하여 기사 본문에 자연스럽게 녹여내십시오. (예: 특정 슈퍼푸드를 활용해 돌풍을 일으킨 스낵 브랜드, 새로운 대체 당을 개발한 푸드테크 기업, Z세대가 열광하는 비건 음료 등)
 
 - **[언어 설정]**: 프롬프트 시각화용 영문 텍스트(visual_prompt)를 제외한 모든 콘텐츠(kakao_teaser, insta_carousel, web_article, editor_note, core_topic, hooking_title 등)는 **반드시 유려하고 세련된 한국어로** 작성하십시오. 영어가 섞이더라도 메인 언어는 한국어여야 합니다.
 
@@ -155,16 +156,22 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2, exclude_urls: list = None,
     # User-Agent 위장 (일부 사이트 봇 타겟팅 차단 우회)
     feedparser.USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.0.0 Safari/537.36"
     
-    # 식음료, 다이어트, 영양, 푸드 트렌드 전용 RSS 피드
+    # 식음료, 다이어트, 영양, 푸드 트렌드 전용 구글 뉴스 RSS 피드 (성/관계 등 잡음 차단)
     food_focused_rss_urls = [
-        "https://www.womenshealthmag.com/rss/all.xml", # 다이어트/영양 특화
-        "https://www.menshealth.com/rss/all.xml", # 단백질/근성장 식단 특화
-        "https://news.google.com/rss/search?q=superaliments+nutrition+tendance&hl=fr&gl=FR&ceid=FR:fr",
-        "https://news.google.com/rss/search?q=%E3%82%B9%E3%83%BC%E3%83%91%E3%83%BC%E3%83%95%E3%83%BC%E3%83%89+%E3%83%80%E3%82%A4%E3%82%A8%E3%83%83%E3%83%88+%E3%83%88%E3%83%AC%E3%83%B3%E3%83%89&hl=ja&gl=JP&ceid=JP:ja",
-        "https://news.google.com/rss/search?q=Ern%C3%A4hrung+Superfood+Vegan+Trend&hl=de&gl=DE&ceid=DE:de",
-        "https://news.google.com/rss/search?q=kost+n%C3%A4ring+superfood+trend&hl=sv&gl=SE&ceid=SE:sv",
-        "https://news.google.com/rss/search?q=%EC%8A%88%ED%8D%BC%ED%91%B8%EB%93%9C+%EC%8B%9D%EB%8B%A8+%EC%98%81%EC%96%91+%EC%9D%B4%EB%84%88%EB%B7%B0%ED%8B%B0+%ED%8A%B8%EB%88%8C%EB%93%9C&hl=ko&gl=KR&ceid=KR:ko",
-        "https://news.google.com/rss/search?q=superfood+nutrition+diet+trend&hl=en-US&gl=US&ceid=US:en"
+        # 프랑스 미식 웰니스 (영양, 슈퍼푸드, 푸드 브랜드)
+        "https://news.google.com/rss/search?q=superaliments+nutrition+tendance+marque&hl=fr&gl=FR&ceid=FR:fr",
+        # 일본 다이어트/슈퍼푸드/푸드 브랜드 트렌드
+        "https://news.google.com/rss/search?q=%E3%82%B9%E3%83%BC%E3%83%91%E3%83%BC%E3%83%95%E3%83%BC%E3%83%89+%E3%83%80%E3%82%A4%E3%82%A8%E3%83%83%E3%83%88+%E9%A3%9F%E5%93%81+%E3%83%96%E3%83%A9%E3%83%B3%E3%83%89&hl=ja&gl=JP&ceid=JP:ja",
+        # 독일 영양/비건 트렌드/푸드 스타트업
+        "https://news.google.com/rss/search?q=Ern%C3%A4hrung+Superfood+Vegan+Startup+Brand&hl=de&gl=DE&ceid=DE:de",
+        # 스웨덴 식단/건강식 브랜드
+        "https://news.google.com/rss/search?q=kost+n%C3%A4ring+superfood+varum%C3%A4rke+trend&hl=sv&gl=SE&ceid=SE:sv",
+        # 한국 식음료/이너뷰티 브랜드 트렌드
+        "https://news.google.com/rss/search?q=%EC%8A%88%ED%8D%BC%ED%91%B8%EB%93%9C+%EC%8B%9D%EB%8B%A8+%EC%98%81%EC%96%91+%ED%91%B8%EB%93%9C+%EB%B8%8C%EB%9E%9C%EB%93%9C+%ED%8A%B8%EB%88%8C%EB%93%9C&hl=ko&gl=KR&ceid=KR:ko",
+        # 글로벌 영미권 식음료 전용 (가장 중요: trendy food brands, wellness startups)
+        "https://news.google.com/rss/search?q=trendy+food+brands+wellness+startup+nutrition&hl=en-US&gl=US&ceid=US:en",
+        "https://news.google.com/rss/search?q=superfood+nutrition+diet+trend+food+brand&hl=en-US&gl=US&ceid=US:en",
+        "https://news.google.com/rss/search?q=new+vegan+snack+brand+trends&hl=en-US&gl=US&ceid=US:en"
     ]
     
     import random
@@ -424,10 +431,11 @@ def generate_editorial_content(trend_data: str, brand_identity: str, sample_arti
 </trend_data>
 
 [Step 2. 팩트체크 및 트렌드 결합 (Google Search Grounding)]
-위 세계 다국적 기사에서 영감을 얻어, **당신의 구글 검색(Search Grounding) 능력을 즉시 가동하여**, 해당 주제가 현재 글로벌 피트니스/웰니스 씬에서 실제로 어떻게 발현되고 있는지 구체적인 팩트(실제 명소, 스튜디오, 브랜드, 현지 커뮤니티 현상 등)를 직접 검색하고 검증하십시오.
+위 세계 다국적 기사에서 영감을 얻어, **당신의 구글 검색(Search Grounding) 능력을 즉시 가동하여**, 해당 주제가 현재 글로벌 피트니스/웰니스 씬에서 실제로 어떻게 발현되고 있는지 구체적인 팩트(실제 명소, 스튜디오, 현지 커뮤니티 현상 등)를 직접 검색하고 검증하십시오.
+- **[핵심 미션: 핫한 푸드 브랜드 소개]**: 트렌드 설명과 함께, **이 트렌드를 주도하거나 관련하여 현재 가장 핫한 글로벌/로컬 푸드 브랜드, 혁신적인 식음료 제품, 미식 스타트업의 실제 사례를 구글 검색을 통해 적극적으로 발굴하고 소개하십시오.** 이 브랜드가 어떤 철학과 제품으로 트렌드를 이끌고 있는지 구체적으로 언급하여 트렌드의 실체감을 높이십시오.
 - 구글 검색을 통해 각 국가의 문화적 특수성이 반영된 통찰력 있는 사례를 찾아 보완하십시오. (예: 일본의 온천/수면 문화, 프랑스의 미식 웰니스, 스웨덴의 자연 친화적 리추얼 등 파생 검색)
 - [매우 중요] 만일 기사 원문이나 검색 결과가 특정 도시(예: 런던, 코펜하겐 등)에 국한된 내용이 아니라면, 억지로 특정 로컬 도시 이름을 언급하여 환각(Fabrication) 트렌드를 만들어내지 마십시오. 대신 '글로벌 하이엔드 웰니스 씬', '밀레니얼/Z세대 피트니스 문화' 등 넓고 지적인 관점으로 서술하십시오.
-- 프리미엄 소스의 철학적 인사이트와 구글 검색으로 확인된 실제 사례를 매끄럽게 결합하여 최고의 웰니스 아티클을 작성하십시오.
+- 프리미엄 소스의 철학적 인사이트와 구글 검색으로 확인된 실제 푸드 브랜드/제품 사례를 매끄럽게 결합하여 최고의 미식/웰니스 아티클을 작성하십시오.
 
 이 모든 정보와 검색결과를 바탕으로, 위시 리추얼 채널에 발행할 3가지 포맷(kakao_teaser, web_article, visual_prompt)과, 당신이 실제로 활용한 최고급 소스+구글검색 URL들을 reference_links 필드에 정리하여 생성하십시오.
 """
@@ -574,8 +582,8 @@ def run_engine() -> Dict[str, Any]:
         # 2. 과거 노션 이력 조회 (중복 방지 - 최근 50건까지 대폭 상향하여 철저히 검증)
         past_topics_text, past_urls = get_past_notion_data(limit=50)
         
-        # 2.5 타겟 카테고리 고정 (당분간 미식/식음료/다이어트/영양 분야로 범위 한정)
-        target_category = "미식, 다이어트, 영양, 비건, 건강식, 스포츠영양, 새로운 식품, 식음료 트렌드"
+        # 2.5 타겟 카테고리 고정 (당분간 미식/식음료/다이어트/영양 분야로 범위 한정 + 핫한 푸드 브랜드 소개)
+        target_category = "미식, 다이어트, 영양, 건강식, 식음료 트렌드, 요즘 글로벌에서 핫한 혁신적인 푸드 브랜드 및 제품"
         logging.info(f"🎯 [타겟 고정] 이번 호 카테고리: {target_category}")
 
         # 3. 글로벌 웰니스/라이프스타일 매거진 RSS 통째 본문 스크래핑 (타임아웃 방지를 위해 피드당 1개 기사만)
