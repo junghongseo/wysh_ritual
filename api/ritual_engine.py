@@ -68,9 +68,10 @@ SYSTEM_PROMPT = """
 'WYSH'라는 브랜드를 단순한 식품 브랜드를 넘어, 전 세계 웰니스 라이프스타일을 선도하는 지적인 미디어로 만드십시오.
 
 [Persona & Tone]
-- 친근하고 부드러운 정보 전달: 주요 어미는 반드시 "~해요.", "~요."를 사용하십시오. 너무 딱딱하거나 학술적인 문체는 배제합니다.
-- 독자가 매주 아침 '나를 위한 영감'으로서 이 메시지를 기다리게 만드는 것이 목표입니다.
-- '다이어트' 대신 '신체 최적화/퍼포먼스 지향' 같은 전문 용어를 사용하되, 내용은 누구나 쉽게 이해할 수 있도록 비유를 들어 아주 쉽게 풀어서 설명하십시오.
+- 당신의 핵심 독자는 트렌드에 극도로 민감하고 글로벌 웰니스 라이프스타일을 빠르게 흡수하고자 하는 '2030 여성'입니다.
+- 이들은 거대 담론보다 뉴욕, LA, 도쿄, 서울, 파리, 런던 등 전 세계 최고 핫한 도시에서 막 터지기 시작한 Z세대의 마이크로 푸드 문화, 로컬 팝업 스토어, 혁신 스타트업의 사례를 가장 흥미로워합니다.
+- 친근하고 부드러운 정보 전달: 주요 어미는 반드시 "~해요.", "~요."를 사용하십시오. 너무 딱딱하거나 학술적인 문체는 배제하고 세련된 매거진 톤을 유지하십시오.
+- '다이어트' 대신 '신체 최적화/퍼포먼스 지향/자기 관리' 같은 전문 용어를 사용하되, 비유를 들어 아주 매끄럽게 설명하십시오.
 
 [Web Article Formatting]
 - 웹 아티클 작성 시 **반드시 소제목으로 문단을 구분**하십시오.
@@ -148,15 +149,15 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 4, exclude_urls: list = None,
         "https://www.bing.com/news/search?q=kost+n%C3%A4ring+superfood+varum%C3%A4rke+trend&format=rss&mkt=sv-se",
         "https://www.bing.com/news/search?q=%EC%8A%88%ED%8D%BC%ED%91%B8%EB%93%9C+%EC%8B%9D%EB%8B%A8+%EC%98%81%EC%96%91+%ED%91%B8%EB%93%9C+%EB%B8%8C%EB%9E%9C%EB%93%9C+%ED%8A%B8%EB%88%8C%EB%93%9C&format=rss&mkt=ko-kr",
         "https://www.bing.com/news/search?q=trendy+food+brands+wellness+startup+nutrition&format=rss&mkt=en-us",
-        "https://www.bing.com/news/search?q=women+wellness+trends+fitness+diet+brand&format=rss&mkt=en-us",
-        "https://www.bing.com/news/search?q=biohacking+diet+longevity+brand+women&format=rss&mkt=en-us",
-        "https://www.bing.com/news/search?q=mental+health+wellness+diet+startup+trend+food&format=rss&mkt=en-us",
-        "https://www.bing.com/news/search?q=gut+microbiome+food+startup+women+health&format=rss&mkt=en-us",
-        "https://www.bing.com/news/search?q=low+sugar+revolution+snacks+startups&format=rss&mkt=en-us",
-        "https://www.bing.com/news/search?q=upcycled+food+nutrition+brand+trend&format=rss&mkt=en-us",
-        "https://www.bing.com/news/search?q=adaptogenic+drinks+wellness+startup&format=rss&mkt=en-us",
-        "https://www.bing.com/news/search?q=regenerative+agriculture+brand+food+trend&format=rss&mkt=en-us",
-        "https://www.bing.com/news/search?q=functional+foods+longevity+women+health&format=rss&mkt=en-us"
+        "https://www.bing.com/news/search?q=gen+z+food+culture+trend+wellness&format=rss&mkt=en-us",
+        "https://www.bing.com/news/search?q=new+york+wellness+food+startup+trend&format=rss&mkt=en-us",
+        "https://www.bing.com/news/search?q=los+angeles+food+startup+wellness+trend&format=rss&mkt=en-us",
+        "https://www.bing.com/news/search?q=tokyo+cafe+food+trend+gen+z&format=rss&mkt=en-us",
+        "https://www.bing.com/news/search?q=seoul+fnb+popup+food+tech+brand&format=rss&mkt=ko-kr",
+        "https://www.bing.com/news/search?q=london+vegan+wellness+food+startup&format=rss&mkt=en-gb",
+        "https://www.bing.com/news/search?q=paris+superfood+wellness+diet&format=rss&mkt=fr-fr",
+        "https://www.bing.com/news/search?q=berlin+plant+based+food+trend&format=rss&mkt=de-de",
+        "https://www.bing.com/news/search?q=singapore+food+tech+startup+nutrition&format=rss&mkt=en-sg"
     ]
     
     import random
@@ -361,6 +362,8 @@ def select_safe_article_with_ai(scraped_titles: str, past_topics: str, target_ca
 이 중에서 반드시 **[{target_category}]** 카테고리에 완벽히 부합하면서도, 
 <past_topics>에 리스트업된 과거 식상한 주제들과는 '완전히 결이 다른', 가장 파격적이고 신선한 영감이 되는 기사 제목을 딱 3개(1순위, 2순위, 3순위) 골라주세요.
 
+특히 거창한 이론이나 일반적인 건강 지식보다, **뉴욕, LA, 런던, 서울, 도쿄 등 글로벌 핫플레이스에서 막 떠오르는 Z세대의 식음료(F&B) 마이크로 트렌드, 스타트업이나 힙한 브랜드의 런칭 소식**을 다루고 있다면 무조건 1순위로 채택하십시오.
+
 **[극도로 중요한 룰: 과거 반복 금지(Duplicate Penalty)]**
 <past_topics>에 명시된 키워드(예: '비건', '식물성', 'CGM', '혈당', '모치무기', '맞춤형 영양제' 등)와 주제적으로 단 1%라도 겹치는 기사는 무조건 탈락시키십시오.
 예를 들어 과거 이력에 '혈당'이 있다면, 오늘 수집된 40개의 기사 중에 '당뇨', '혈당 스파이크', '저당' 관련 뉴스는 아무리 매력적이어도 모두 제외해야 합니다.
@@ -409,10 +412,11 @@ def search_and_draft_article(selected_title: str, selected_url: str, target_cate
     초점 카테고리: {target_category}
     
     [지시사항]
-    1. 검색 엔진을 통해 해당 기사 혹은 연관된 최신 트렌드/브랜드 스토리에 대해 방대하게 리서치하세요.
-    2. 수집된 정보를 바탕으로 매거진 아티클 "초안(Draft)"을 풍성하게 작성하세요.
-    3. 구체적인 사례, 브랜드의 흥미로운 행보, 2030 여성 독자가 일상에 어떻게 적용할 지에 대한 가이드(Actionable Tips)를 듬뿍 담으세요.
-    4. 당신이 활용한 실제 출처 링크(URL)들을 이 초안 마지막에 참고자료 목록으로 꼭 적어두세요.
+    1. 검색 엔진을 통해 해당 기사 혹은 연관된 최신 트렌드를 매우 방대하게 리서치하세요.
+    2. 가장 중요하게 봐야 할 것은 다음과 같습니다: 뉴욕, LA, 런던, 파리, 싱가포르, 도쿄, 서울 등의 최전선(Cultural Hubs)에서 이 현상이 어떻게 소비되고 있는지 구체적인 사례(Z세대 문화, 실제 존재하는 스타트업/브랜드 제품, 힙스터들의 반응)를 반드시 최소 1~2개 이상 구글링으로 발굴하십시오.
+    3. 수집된 정보를 바탕으로 매거진 아티클 "초안(Draft)"을 작성하세요. 추상적인 담론을 넘어 '어떤 글로벌 도시에서 어떤 브랜드가 이런 혁신을 이끌고 있는지' 눈에 그려지듯 상세하게 서술해야 2030 여성들의 흥미를 유발할 수 있습니다.
+    4. 초안의 마지막 부분에는 2030 여성 독자가 이 힙한 트렌드를 자신의 일상으로 작게나마 가져와볼 수 있도록 하는 실용적인 가이드(Actionable Tips)를 포함하십시오.
+    5. 당신이 구글링으로 찾아낸 실제 출처 링크(URL)나 브랜드 홈페이지들을 이 초안 마지막에 참고자료 목록으로 꼭 적어두세요.
     """
     
     # Gemini 2.5 flash 호출 (구글 검색 Grounding 활성화)
