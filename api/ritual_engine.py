@@ -68,9 +68,14 @@ SYSTEM_PROMPT = """
 'WYSH'라는 브랜드를 단순한 식품 브랜드를 넘어, 전 세계 웰니스 라이프스타일을 선도하는 지적인 미디어로 만드십시오.
 
 [Persona & Tone]
-- 세련된(Sophisticated), 통찰력 있는(Insightful), 감각적인(Trendy).
+- 친근하고 부드러운 정보 전달: 주요 어미는 반드시 "~해요.", "~요."를 사용하십시오. 너무 딱딱하거나 학술적인 문체는 배제합니다.
 - 독자가 매주 아침 '나를 위한 영감'으로서 이 메시지를 기다리게 만드는 것이 목표입니다.
-- '다이어트' 대신 '신체 최적화/퍼포먼스 지향' 같은 전문 용어를 사용하십시오.
+- '다이어트' 대신 '신체 최적화/퍼포먼스 지향' 같은 전문 용어를 사용하되, 내용은 누구나 쉽게 이해할 수 있도록 비유를 들어 아주 쉽게 풀어서 설명하십시오.
+
+[Web Article Formatting]
+- 웹 아티클 작성 시 **반드시 소제목으로 문단을 구분**하십시오.
+- 각 소제목 앞에는 내용에 가장 잘 어울리는 **이모지(Emoji)를 1개씩 추가**하십시오. (예: ⏰ 식사에도 '타이밍'이 존재해요)
+- 너무 길어지지 않도록, **각 문단(하나의 소제목 아래 내용)은 200자 내외**로 아주 짧고 가독성 좋게 작성하십시오.
 
 [Constraints]
 - 직접적인 제품 홍보, 할인 안내, 저렴한 마케팅 문구를 절대 금지합니다.
@@ -122,32 +127,6 @@ def read_local_context(file_path: str) -> str:
         logging.error(f"로컬 파일 읽기 실패 ({full_path}): {e}")
         return ""
 
-
-def scrape_article_text(url: str) -> str:
-    """BeautifulSoup을 이용해 원문 URL에서 기사 본문 텍스트만 추출합니다."""
-    try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Referer': 'https://www.google.com/'
-        }
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # 불필요한 태그 제거 (광고, 스크립트, 네비게이션 등)
-        for junk in soup(['script', 'style', 'nav', 'header', 'footer', 'aside']):
-            junk.decompose()
-            
-        # 본문 핵심이 보통 <article>이나 본문 단락 <p>에 있음
-        paragraphs = soup.find_all('p')
-        text = ' '.join([p.get_text(strip=True) for p in paragraphs if len(p.get_text(strip=True)) > 20])
-        return text[:3000]  # 토큰 제한을 고려하여 기사당 최대 3000자로 제한
-    except Exception as e:
-        logging.warning(f"기사 스크래핑 실패 ({url}): {e}")
-        return ""
-
 def scrape_premium_rss_feeds(limit_per_feed: int = 2, exclude_urls: list = None, target_category: str = "") -> tuple:
     """글로벌 최고급 웰니스 매거진의 식음료/영양 관련 RSS 피드를 파싱하고 본문을 통째로 긁어옵니다."""
     logging.info("푸드/영양 특화 매거진 RSS 스크래핑 시작...")
@@ -160,17 +139,11 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2, exclude_urls: list = None,
     
     # 식음료, 다이어트, 영양, 푸드 트렌드 전용 Bing 메인 뉴스 RSS 피드 (자바스크립트 우회 차단 없음)
     food_focused_rss_urls = [
-        # 프랑스 미식 웰니스 (영양, 슈퍼푸드, 푸드 브랜드)
         "https://www.bing.com/news/search?q=superaliments+nutrition+tendance+marque&format=rss&mkt=fr-fr",
-        # 일본 다이어트/슈퍼푸드/푸드 브랜드 트렌드
         "https://www.bing.com/news/search?q=%E3%82%B9%E3%83%BC%E3%83%91%E3%83%BC%E3%83%95%E3%83%BC%E3%83%89+%E3%83%80%E3%82%A4%E3%82%A8%E3%83%83%E3%83%88+%E9%A3%9F%E5%93%81+%E3%83%96%E3%83%A9%E3%83%B3%E3%83%89&format=rss&mkt=ja-jp",
-        # 독일 영양/비건 트렌드/푸드 스타트업
         "https://www.bing.com/news/search?q=Ern%C3%A4hrung+Superfood+Vegan+Startup+Brand&format=rss&mkt=de-de",
-        # 스웨덴 식단/건강식 브랜드
         "https://www.bing.com/news/search?q=kost+n%C3%A4ring+superfood+varum%C3%A4rke+trend&format=rss&mkt=sv-se",
-        # 한국 식음료/이너뷰티 브랜드 트렌드
         "https://www.bing.com/news/search?q=%EC%8A%88%ED%8D%BC%ED%91%B8%EB%93%9C+%EC%8B%9D%EB%8B%A8+%EC%98%81%EC%96%91+%ED%91%B8%EB%93%9C+%EB%B8%8C%EB%9E%9C%EB%93%9C+%ED%8A%B8%EB%88%8C%EB%93%9C&format=rss&mkt=ko-kr",
-        # 글로벌 영미권 식음료 전용 (가장 중요: trendy food brands, wellness startups)
         "https://www.bing.com/news/search?q=trendy+food+brands+wellness+startup+nutrition&format=rss&mkt=en-us",
         "https://www.bing.com/news/search?q=superfood+nutrition+diet+trend+food+brand&format=rss&mkt=en-us",
         "https://www.bing.com/news/search?q=new+vegan+snack+brand+trends&format=rss&mkt=en-us"
@@ -202,10 +175,17 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2, exclude_urls: list = None,
                     
                 title = entry.title
                 link = entry.link
-                # 쿼리스트링 및 해시 태그 전부 제거하여 베이스 URL 추출
-                base_link = link.split("?")[0].split("#")[0].strip('/')
                 
-                # 이미 사용된 과거 URL 인 경우 1차 텍스트 필터 스킵 (하지만 RSS URL이 Proxy URL이므로 참고용)
+                # Bing 뉴스의 경우 내부에 실제 url 파라미터가 숨어있음
+                import urllib.parse
+                parsed_url = urllib.parse.urlparse(link)
+                query_params = urllib.parse.parse_qs(parsed_url.query)
+                actual_url = query_params.get('url', [link])[0]
+                
+                # 쿼리스트링 및 해시 태그 전부 제거하여 베이스 URL 추출
+                base_link = actual_url.split("?")[0].split("#")[0].strip('/')
+                
+                # 이미 사용된 과거 URL 인 경우 1차 텍스트 필터 스킵
                 if any(base_link in ex_url or ex_url in base_link for ex_url in exclude_urls if ex_url):
                     continue
                 
@@ -361,7 +341,7 @@ def select_safe_article_with_ai(scraped_titles: str, past_topics: str, target_ca
     logging.info(f"AI 데스크팅: 타겟 카테고리 [{target_category}]에 맞는 안전한 새 기사 판별 중 (Step 1)...")
     
     if not gemini_client:
-        return scraped_trends
+        return {}
         
     prompt = f"""
 당신은 엄격하고 날카로운 데스크 에디터입니다.
@@ -404,6 +384,76 @@ def select_safe_article_with_ai(scraped_titles: str, past_topics: str, target_ca
     except Exception as e:
         logging.error(f"AI 데스크팅 실패: {e}")
         return {}
+
+def search_and_draft_article(selected_title: str, selected_url: str, target_category: str) -> str:
+    """구글 검색 그라운딩을 활용하여 최신 트렌드를 조사하고 초안을 작성합니다."""
+    client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+    
+    prompt = f"""당신은 트렌디한 2030 여성을 타겟으로 하는 프리미엄 라이프스타일 매거진 에디터입니다.
+    아래 선정된 웰니스/푸드 트렌드 기사에 대해 [Google Search] 툴을 적극 활용하여 최신 정보와 영감을 자유롭게 조사하십시오.
+    
+    [선별된 베이스 기사]
+    제목: {selected_title}
+    출처 URL: {selected_url}
+    초점 카테고리: {target_category}
+    
+    [지시사항]
+    1. 검색 엔진을 통해 해당 기사 혹은 연관된 최신 트렌드/브랜드 스토리에 대해 방대하게 리서치하세요.
+    2. 수집된 정보를 바탕으로 매거진 아티클 "초안(Draft)"을 풍성하게 작성하세요.
+    3. 구체적인 사례, 브랜드의 흥미로운 행보, 2030 여성 독자가 일상에 어떻게 적용할 지에 대한 가이드(Actionable Tips)를 듬뿍 담으세요.
+    4. 당신이 활용한 실제 출처 링크(URL)들을 이 초안 마지막에 참고자료 목록으로 꼭 적어두세요.
+    """
+    
+    # Gemini 2.5 flash 호출 (구글 검색 Grounding 활성화)
+    response = client.models.generate_content(
+        model='gemini-2.5-flash',
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            temperature=0.7,
+            tools=[types.Tool(google_search=types.GoogleSearch())]
+        )
+    )
+    return response.text
+
+def format_editorial_content(draft_text: str, source_url: str, brand_identity: str, sample_article: str) -> Dict[str, Any]:
+    """초안을 완벽한 JSON 형식으로 포맷팅합니다 (Search Grounding 비활성화, Structured Output 활성화)"""
+    client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+    
+    prompt = f"""당신은 Wysh 매거진의 편집장입니다.
+    아래 제공된 [취재 초안]을 완벽하게 다듬어서 명시된 JSON(ResultSchema) 구조에 맞춰 출력하십시오.
+    
+    [필수 규칙, 페르소나, 그리고 JSON 구조]
+    {SYSTEM_PROMPT}
+    
+    [AI 에디터의 취재 초안 (Google Search 기반 요약본)]
+    {draft_text}
+    
+    [원문/출처 URL (Reference_links에 반영할 것)]
+    {source_url}
+    
+    [브랜드 아이덴티티]
+    {brand_identity}
+    
+    [참고용 아티클 샘플 (어조, 구성, 스타일 완벽 준수)]
+    {sample_article}
+    """
+    
+    response = client.models.generate_content(
+        model='gemini-2.5-flash',
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=EditorialContent,
+            temperature=0.7
+        )
+    )
+    
+    try:
+        return json.loads(response.text)
+    except json.JSONDecodeError as e:
+        logging.error(f"JSON 파싱 실패: {e}")
+        logging.error(f"Raw response: {response.text}")
+        raise ValueError("AI가 반환한 결과물이 올바른 JSON 형식이 아닙니다.")
 
 def generate_editorial_content(trend_data: str, brand_identity: str, sample_article: str, target_category: str) -> Dict[str, str]:
     """검색 데이터, 로컬 컨텍스트를 종합하여 에디토리얼을 생성합니다. (과거 금지어 프롬프트 제거)"""
@@ -471,6 +521,24 @@ def generate_editorial_content(trend_data: str, brand_identity: str, sample_arti
     return result_dict
 
 
+def validate_link(url: str) -> bool:
+    """URL에 실제 접속이 가능한지(404 Not Found 등이 아닌지) 검증합니다."""
+    try:
+        # User-Agent 설정 후 가벼운 HEAD 요청 (불가능할 경우 GET)
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        # 일단 timeout 3초를 주고 빠르게 확인
+        res = requests.head(url, headers=headers, timeout=5, allow_redirects=True)
+        if res.status_code >= 400:
+            # HEAD가 막혀있는 사이트들을 대비해 GET으로 재시도
+            res_get = requests.get(url, headers=headers, timeout=5)
+            if res_get.status_code >= 400:
+                logging.warning(f"접근 불가 링크 필터링됨 (상태코드 {res_get.status_code}): {url}")
+                return False
+        return True
+    except Exception as e:
+        logging.warning(f"접근 불가 링크 필터링됨 (에러): {url} -> {e}")
+        return False
+
 def upload_to_notion(content_dict: Dict[str, Any], topic_title: str):
     """생성된 콘텐츠와 AI가 직접 필터링한 참고 링크를 노션 데이터베이스에 적재합니다."""
     logging.info("Notion 대시보드 적재 시작...")
@@ -496,6 +564,8 @@ def upload_to_notion(content_dict: Dict[str, Any], topic_title: str):
             url = ref.get("url", "").strip()
             comment = ref.get("comment", "").strip()
             if url:
+                if not validate_link(url):
+                    continue  # 죽은 링크는 추가하지 않음
                 rich_text_links.append({
                     "type": "text",
                     "text": {
@@ -507,6 +577,12 @@ def upload_to_notion(content_dict: Dict[str, Any], topic_title: str):
     if not rich_text_links:
         rich_text_links = [{"text": {"content": "참고 링크 없음"}}]
     
+    # Notion은 rich_text.content 하나당 2000자를 초과할 수 없으므로 텍스트를 청크 분할하는 헬퍼 함수
+    def chunk_text(text: str, chunk_size: int = 1900) -> list:
+        if not text:
+            return [{"text": {"content": ""}}]
+        return [{"text": {"content": text[i:i+chunk_size]}} for i in range(0, len(text), chunk_size)]
+        
     try:
         new_page = notion.pages.create(
             parent={"database_id": NOTION_DATABASE_ID},
@@ -527,27 +603,19 @@ def upload_to_notion(content_dict: Dict[str, Any], topic_title: str):
                     ]
                 },
                 "카톡 초안": {
-                    "rich_text": [
-                        {"text": {"content": content_dict.get("kakao_teaser", "")[:2000]}}
-                    ]
+                    "rich_text": chunk_text(content_dict.get("kakao_teaser", ""))
                 },
                 "인스타 카드뉴스": {
-                    "rich_text": [
-                        {"text": {"content": content_dict.get("insta_carousel", "")[:2000]}}
-                    ]
+                    "rich_text": chunk_text(content_dict.get("insta_carousel", ""))
                 },
                 "웹 아티클": {
-                    "rich_text": [
-                        {"text": {"content": content_dict.get("web_article", "")[:2000]}}
-                    ]
+                    "rich_text": chunk_text(content_dict.get("web_article", ""))
                 },
                 "참고 링크": {
                     "rich_text": rich_text_links[:10]  # 최대 10개까지만 안전하게 적재
                 },
                 "에디터 노트": {
-                    "rich_text": [
-                        {"text": {"content": content_dict.get("editor_note", "")[:2000]}}
-                    ]
+                    "rich_text": chunk_text(content_dict.get("editor_note", ""))
                 },
                 "화보 프롬프트": {
                     "rich_text": [
@@ -597,40 +665,38 @@ def run_engine() -> Dict[str, Any]:
         if not candidates or len(candidates) == 0:
             raise ValueError("AI 데스크팅 단계에서 단 1개의 유효한 기사 후보도 선정하지 못했습니다. (프롬프트 과도한 제어로 인한 빈 배열 반환)")
             
-        logging.info(f"선별된 {len(candidates)}개의 기사 후보를 바탕으로 안전망(Fallback) 스크래핑 루프 시작...")
+        logging.info(f"선별된 {len(candidates)}개의 기사 후보를 바탕으로 안전망(Fallback) 리서치 루프 시작...")
         
-        final_selected_article_text = ""
-        target_title = ""
-        target_url = ""
+        # 5. Fallback Search Grounding 루프
+        draft_text = ""
+        final_url = ""
+        for index, article in enumerate(candidates):
+            try:
+                article_title = article.get("title", "")
+                article_url = article.get("source_url", "")
+                logging.info(f"[{index+1}순위] 기사 구글 리서치 시도 중: {article_title}")
+                draft_text = search_and_draft_article(article_title, article_url, target_category)
+                if draft_text and len(draft_text) > 200:
+                    final_url = article_url
+                    logging.info("=> 구글 리서치 및 초안 작성 성공!")
+                    break
+                else:
+                    logging.warning(f"=> 반환된 초안 길이 부족. 다음 순위로 이동합니다.")
+            except Exception as e:
+                logging.warning(f"=> 리서치 실패 ({article.get('title')}): {str(e)}\n=> 즉시 다음 순위 후보 기사를 시도합니다.")
         
-        # 4.5. 선택된 Top 3 기사에 대해 순차적으로 본문 스크래핑 시도 (Fallback Loop)
-        for i, article in enumerate(candidates):
-            target_url = article.get("source_url")
-            target_title = article.get("title")
-            logging.info(f"[{i+1}순위] URL 본문 파싱 시도: {target_url}")
+        if not draft_text or len(draft_text) < 200:
+            raise ValueError(f"모든 기사 후보({len(candidates)}개)의 리서치 및 초안 획득에 실패했습니다.")
             
-            article_body = scrape_article_text(target_url)
-            
-            if article_body:
-                # 성공하면 루프 탈출
-                logging.info(f"[{i+1}순위] 기사 본문 스크래핑 성공! (길이: {len(article_body)}자)")
-                final_selected_article_text = f"---\n[Source: {target_url}]\n- 제목: {target_title}\n- 퓨어 본문 내용:\n{article_body}\n\n"
-                break
-            else:
-                logging.warning(f"[{i+1}순위] 기사 본문을 스크래핑하는 데 실패했습니다. (페이월 또는 봇 차단 의심) - 다음 순위로 조용히 넘어갑니다.")
-        
-        if not final_selected_article_text:
-            raise ValueError("모든 Top 3 후보 기사의 본문 스크래핑에 실패했습니다. (유료, 자바스크립트 등 차단 문제)")
-        
-        # 5. 2단계: AI 에디터 콘텐츠 본편 생성 (Search Grounding 적용)
-        content = generate_editorial_content(
-            trend_data=final_selected_article_text,
-            brand_identity=brand_id_text,
-            sample_article=sample_text,
-            target_category=target_category
+        # 6. JSON 데스크팅 (Formatting)
+        logging.info("최종 JSON 포맷팅 작업 시작...")
+        content = format_editorial_content(
+            draft_text=draft_text, 
+            source_url=final_url,
+            brand_identity=brand_id_text, 
+            sample_article=sample_text
         )
         
-        # 6. 노션 대시보드 적재
         core_topic = content.get("core_topic", "새로운 웰니스 트렌드")
         hooking_title = content.get("hooking_title", "이번 주 위시 리추얼")
         topic_preview = f"[{core_topic}] {hooking_title}"
