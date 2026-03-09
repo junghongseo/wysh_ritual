@@ -228,7 +228,7 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2, exclude_urls: list = None,
     return results_text, "\n".join(urls_list)
 
 
-def get_past_notion_data(limit: int = 50) -> tuple[str, list]:
+def get_past_notion_data(limit: int = 100) -> tuple[str, list]:
     """노션 데이터베이스에서 최근 발행된 주제(Title) 내의 [핵심 주제]와 참고 링크 목록을 가져옵니다."""
     logging.info("노션 과거 발행 이력 조회 시작...")
     if not notion or not NOTION_DATABASE_ID:
@@ -375,6 +375,10 @@ def select_safe_article_with_ai(scraped_trends: str, past_topics: str, target_ca
 아래 <new_articles>는 오늘 새로 수집된 글로벌 소스들입니다.
 이 중에서 반드시 **[{target_category}]** 카테고리에 가장 완벽히 부합하면서도, 
 <past_topics>에 리스트업된 과거 금지 주제들과는 완전히 동떨어진 가장 신선하고 영감이 되는 기사를 **단 하나만** 골라주세요.
+
+**[절대 엄수 금지사항: 중복 회피]**
+<past_topics>에 리스트업된 키워드(예: '업사이클 푸드', '에코 푸드' 등)를 해당 외국어 원문으로 번역해보았을 때, <new_articles> 중 조금이라도 이와 비슷한 주제(예: Upcycled Food, Food waste 등)를 다루는 기사가 있다면 **무조건 탈락**시키십시오.
+과거 주제와 단 1%라도 겹치는 기사를 고르기보다는, 차라리 타겟 카테고리에 조금 덜 맞더라도 완벽히 다른 신선한 소재의 기사를 고르십시오. 과거 이력과의 완전한 차별화가 1순위입니다!
 
 <past_topics>
 {past_topics}
@@ -579,8 +583,8 @@ def run_engine() -> Dict[str, Any]:
         brand_id_text = read_local_context("brand_identity.md")
         sample_text = read_local_context("sample_article.md")
         
-        # 2. 과거 노션 이력 조회 (중복 방지 - 최근 50건까지 대폭 상향하여 철저히 검증)
-        past_topics_text, past_urls = get_past_notion_data(limit=50)
+        # 2. 과거 노션 이력 조회 (중복 방지 - 최근 100건까지 대폭 상향하여 철저히 검증)
+        past_topics_text, past_urls = get_past_notion_data(limit=100)
         
         # 2.5 타겟 카테고리 고정 (당분간 미식/식음료/다이어트/영양 분야로 범위 한정 + 핫한 푸드 브랜드 소개)
         target_category = "미식, 다이어트, 영양, 건강식, 식음료 트렌드, 요즘 글로벌에서 핫한 혁신적인 푸드 브랜드 및 제품"
