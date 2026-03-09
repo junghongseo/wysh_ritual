@@ -55,8 +55,7 @@ class EditorialContent(BaseModel):
 class SelectedSafeArticle(BaseModel):
     title: str = Field(description="선택된 안전한 기사의 제목")
     source_url: str = Field(description="선택된 기사의 원문 URL")
-    article_body: str = Field(description="선택된 기사의 본문 내용 전체")
-    reason: str = Field(description="이 기사를 선택한 이유 (과거 생성된 리스트와 어떻게 완전히 다른지 설명)")
+    reason: str = Field(description="이 기사를 선택한 이유 (과거 생성된 리스트와 어떻게 완전히 다르고 어떤 면에서 혁신적인 푸드 트렌드인지 설명)")
 
 # ---------------------------------------------------------------------------
 # 2. 페르소나 및 시스템 프롬프트 정의
@@ -176,14 +175,11 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2, exclude_urls: list = None,
     
     import random
     
-    # 이제 일반 피드 없이, 무조건 푸드 특화 피드 안에서만 고릅니다.
     rss_urls = list(food_focused_rss_urls)
-
     random.shuffle(rss_urls)
     
-    # [알림] Vercel Serverless Function 타임아웃(무료 요금제 10초 제한) 방지를 위해,
-    # 랜덤하게 섞인 최상단의 단 2개 피드만 초고속으로 검사합니다.
-    rss_urls = rss_urls[:2]
+    # 여러 피드에서 제목만 빠르게 가져오므로, 전체 8개 리스트에서 4~5개 피드만 검사하여 속도를 확보합니다.
+    rss_urls = rss_urls[:5]
     
     results_text = ""
     urls_list = []
@@ -206,25 +202,21 @@ def scrape_premium_rss_feeds(limit_per_feed: int = 2, exclude_urls: list = None,
                 # 쿼리스트링 및 해시 태그 전부 제거하여 베이스 URL 추출
                 base_link = link.split("?")[0].split("#")[0].strip('/')
                 
-                # 이미 사용된 URL(기사)인 경우 스킵
+                # 이미 사용된 과거 URL 인 경우 1차 텍스트 필터 스킵 (하지만 RSS URL이 Proxy URL이므로 참고용)
                 if any(base_link in ex_url or ex_url in base_link for ex_url in exclude_urls if ex_url):
-                    logging.info(f"중복 기사 스킵: {title} ({base_link})")
                     continue
                 
-                # 원문 스크래핑 시도
-                article_body = scrape_article_text(link)
-                
-                if article_body:
-                    results_text += f"---\n[Source: {feed_url}]\n- 제목: {title}\n- 링크: {link}\n- 본문 내용:\n{article_body}\n\n"
-                    urls_list.append(link)
-                    added_count += 1
+                # 본문 스크래핑 생략! 제목과 링크만 추가하여 후보군 대량 확보
+                results_text += f"- [{feed_url}] 제목: {title} | 링크: {link}\n"
+                urls_list.append(link)
+                added_count += 1
         except Exception as e:
             logging.error(f"RSS 파싱 오류 ({feed_url}): {e}")
             
     if not results_text:
-        results_text = "RSS에서 기사를 수집하지 못했습니다."
+        results_text = "RSS에서 기사 제목을 수집하지 못했습니다."
         
-    logging.info(f"프리미엄 스크래핑 완료. (총 {len(urls_list)}개 기사 본문 확보)")
+    logging.info(f"빠른 스크래핑 완료. (총 {len(urls_list)}개 기사 후보 제목/URL 확보)")
     return results_text, "\n".join(urls_list)
 
 
@@ -361,8 +353,8 @@ def release_lock(page_id: str):
 # ---------------------------------------------------------------------------
 # 4. 핵심 AI 생성 로직
 # ---------------------------------------------------------------------------
-def select_safe_article_with_ai(scraped_trends: str, past_topics: str, target_category: str) -> str:
-    """1단계 프리필터링: 스크래핑된 여러 기사 중, 목표 타겟 카테고리에 가장 부합하면서 과거 주제와 겹치지 않는 단일 기사를 선정합니다."""
+def select_safe_article_with_ai(scraped_titles: str, past_topics: str, target_category: str) -> dict:
+    """1단계 프리필터링: 대량의 기사 '제목' 후보 중 가장 타겟에 부합하고 과거 주제와 겹치지 않는 단 1개의 URL을 선정합니다."""
     logging.info(f"AI 데스크팅: 타겟 카테고리 [{target_category}]에 맞는 안전한 새 기사 판별 중 (Step 1)...")
     
     if not gemini_client:
@@ -374,21 +366,21 @@ def select_safe_article_with_ai(scraped_trends: str, past_topics: str, target_ca
 
 아래 <new_articles>는 오늘 새로 수집된 글로벌 소스들입니다.
 이 중에서 반드시 **[{target_category}]** 카테고리에 가장 완벽히 부합하면서도, 
-<past_topics>에 리스트업된 과거 금지 주제들과는 완전히 동떨어진 가장 신선하고 영감이 되는 기사를 **단 하나만** 골라주세요.
+<past_topics>에 리스트업된 과거 금지 주제들과는 완전히 동떨어진 가장 신선하고 영감이 되는 기사 제목을 **단 하나만** 골라주세요.
 
 **[절대 엄수 금지사항: 중복 회피]**
-<past_topics>에 리스트업된 키워드(예: '업사이클 푸드', '에코 푸드' 등)를 해당 외국어 원문으로 번역해보았을 때, <new_articles> 중 조금이라도 이와 비슷한 주제(예: Upcycled Food, Food waste 등)를 다루는 기사가 있다면 **무조건 탈락**시키십시오.
-과거 주제와 단 1%라도 겹치는 기사를 고르기보다는, 차라리 타겟 카테고리에 조금 덜 맞더라도 완벽히 다른 신선한 소재의 기사를 고르십시오. 과거 이력과의 완전한 차별화가 1순위입니다!
+<past_topics>에 리스트업된 키워드(예: '업사이클 푸드', '에코 푸드', '비건' 등)를 해당 외국어 원문으로 번역해보았을 때, <new_articles> 중 조금이라도 이와 비슷한 주제(예: Upcycled Food, Food waste 등)를 다루는 기사 제목이 있다면 **무조건 탈락**시키십시오.
+과거 주제와 단 1%라도 겹치는 기사를 고르기보다는, 차라리 타겟 카테고리에 조금 덜 맞더라도 완벽히 다른 신선한 소재의 푸드 브랜드/트렌드 기사를 1순위로 고르십시오.
 
 <past_topics>
 {past_topics}
 </past_topics>
 
-<new_articles>
-{scraped_trends}
-</new_articles>
+<new_articles_titles>
+{scraped_titles}
+</new_articles_titles>
 
-선택한 단 하나의 기사에 대해 제목, 원문 URL, 본문 내용을 그대로 추출하고, 선택 이유(타겟 카테고리 부합도 및 중복 회피 이유)를 설명해주세요.
+선택한 단 하나의 기사에 대해 원문 제목(title), 원문 URL(source_url), 그리고 완벽하게 과거 중복을 피하고 새로운 트렌드를 제시했다는 선택 이유(reason)를 JSON으로 설명해주세요.
 """
     try:
         response = gemini_client.models.generate_content(
@@ -401,12 +393,11 @@ def select_safe_article_with_ai(scraped_trends: str, past_topics: str, target_ca
             )
         )
         res_dict = json.loads(response.text)
-        safe_article_text = f"---\n[Source: {res_dict.get('source_url')}]\n- 제목: {res_dict.get('title')}\n- 본문 내용:\n{res_dict.get('article_body')}\n\n"
-        logging.info(f"AI 데스크팅 완료. 타겟 달성 기사 채택: {res_dict.get('title')}")
-        return safe_article_text
+        logging.info(f"AI 데스크팅 완료. 타겟 달성 기사 채택: [{res_dict.get('title')}] (이유: {res_dict.get('reason')})")
+        return res_dict
     except Exception as e:
         logging.error(f"AI 데스크팅 실패: {e}")
-        return scraped_trends
+        return {}
 
 def generate_editorial_content(trend_data: str, brand_identity: str, sample_article: str, target_category: str) -> Dict[str, str]:
     """검색 데이터, 로컬 컨텍스트를 종합하여 에디토리얼을 생성합니다. (과거 금지어 프롬프트 제거)"""
@@ -590,15 +581,29 @@ def run_engine() -> Dict[str, Any]:
         target_category = "미식, 다이어트, 영양, 건강식, 식음료 트렌드, 요즘 글로벌에서 핫한 혁신적인 푸드 브랜드 및 제품"
         logging.info(f"🎯 [타겟 고정] 이번 호 카테고리: {target_category}")
 
-        # 3. 글로벌 웰니스/라이프스타일 매거진 RSS 통째 본문 스크래핑 (타임아웃 방지를 위해 피드당 1개 기사만)
-        scraped_trends, source_links = scrape_premium_rss_feeds(limit_per_feed=1, exclude_urls=past_urls, target_category=target_category)
+        # 3. 글로벌 웰니스/라이프스타일 매거진 RSS에서 '기사 제목/URL 후보군' 최대 대량 스크래핑 (피드당 5개 제목수집)
+        scraped_titles, source_links = scrape_premium_rss_feeds(limit_per_feed=5, exclude_urls=past_urls, target_category=target_category)
         
-        # 4. 1단계: AI 데스크팅 (타겟 카테고리에 맞는 안전한 기사 선별)
-        safe_trend_data = select_safe_article_with_ai(scraped_trends, past_topics_text, target_category)
+        # 4. 1단계: AI 데스크팅 (30+ 후보 중 타겟 카테고리에 맞는 가장 안전한 단 1건의 기사 URL 선별)
+        selected_article_info = select_safe_article_with_ai(scraped_titles, past_topics_text, target_category)
+        target_url = selected_article_info.get("source_url")
+        target_title = selected_article_info.get("title")
+        
+        if not target_url:
+            raise ValueError("AI 데스크팅 단계에서 유효한 유니크 기사 URL을 선정하지 못했습니다.")
+            
+        logging.info(f"선정된 단 1개의 URL 본문 파싱 시작: {target_url}")
+        
+        # 4.5. 선택된 단 1개의 기사만 BeautifulSoup을 이용해 깊게 본문 스크래핑
+        article_body = scrape_article_text(target_url)
+        if not article_body:
+            raise ValueError(f"선정된 기사 본문을 스크래핑하는 데 실패했습니다. ({target_url})")
+            
+        final_selected_article_text = f"---\n[Source: {target_url}]\n- 제목: {target_title}\n- 퓨어 본문 내용:\n{article_body}\n\n"
         
         # 5. 2단계: AI 에디터 콘텐츠 본편 생성 (Search Grounding 적용)
         content = generate_editorial_content(
-            trend_data=safe_trend_data,
+            trend_data=final_selected_article_text,
             brand_identity=brand_id_text,
             sample_article=sample_text,
             target_category=target_category
