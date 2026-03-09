@@ -263,11 +263,11 @@ def acquire_lock() -> tuple[str, str]:
         
     try:
         from datetime import timezone
-        # 최근 10분 이내에 생성된 락이 있는지 확인 (데드락 방지)
+        # 최근 2분 이내에 생성된 락이 있는지 확인 (서버리스 타임아웃 60초 대비 빠른 락해제)
         # Vercel 환경이 UTC이므로 명시적으로 KST를 구해서 계산해야 함.
         kst = timezone(timedelta(hours=9))
         now_kst = datetime.now(kst)
-        ten_mins_ago = (now_kst - timedelta(minutes=10)).isoformat()
+        ten_mins_ago = (now_kst - timedelta(minutes=2)).isoformat()
         
         response = notion.databases.query(
             **{
@@ -655,8 +655,8 @@ def run_engine() -> Dict[str, Any]:
         target_category = "미식, 다이어트, 영양, 건강식, 식음료 트렌드, 요즘 글로벌에서 핫한 혁신적인 푸드 브랜드 및 제품"
         logging.info(f"🎯 [타겟 고정] 이번 호 카테고리: {target_category}")
 
-        # 3. 글로벌 웰니스/라이프스타일 매거진 RSS에서 '기사 제목/URL 후보군' 최대 대량 스크래핑 (피드당 5개 제목수집)
-        scraped_titles, source_links = scrape_premium_rss_feeds(limit_per_feed=5, exclude_urls=past_urls, target_category=target_category)
+        # 3. 글로벌 웰니스/라이프스타일 매거진 RSS에서 '기사 제목/URL 후보군' 수집 (Vercel 타임아웃 방지를 위해 피드당 2개로 축소)
+        scraped_titles, source_links = scrape_premium_rss_feeds(limit_per_feed=2, exclude_urls=past_urls, target_category=target_category)
         
         # 4. 1단계: AI 데스크팅 (30+ 후보 중 타겟 카테고리에 맞는 가장 안전한 Top 3 기사 URL 배열 선별)
         selected_articles_dict = select_safe_article_with_ai(scraped_titles, past_topics_text, target_category)

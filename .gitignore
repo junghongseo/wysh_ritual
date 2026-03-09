@@ -11,3 +11,5 @@ __pycache__/
 
 # 로그 파일
 *.log
+.vercel
+.env*.local
