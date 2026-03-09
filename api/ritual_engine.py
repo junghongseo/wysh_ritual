@@ -55,7 +55,10 @@ class EditorialContent(BaseModel):
 class SelectedSafeArticle(BaseModel):
     title: str = Field(description="선택된 안전한 기사의 제목")
     source_url: str = Field(description="선택된 기사의 원문 URL")
-    reason: str = Field(description="이 기사를 선택한 이유 (과거 생성된 리스트와 어떻게 완전히 다르고 어떤 면에서 혁신적인 푸드 트렌드인지 설명)")
+    reason: str = Field(description="이 기사를 고른 이유 (과거 이력과 어떻게 완전히 다르고 혁신적인지 설명)")
+
+class SelectedSafeArticles(BaseModel):
+    articles: List[SelectedSafeArticle] = Field(description="가장 훌륭한 최우선 순위 기사 3개 (1순위, 2순위, 3순위 순서대로 배열)")
 
 # ---------------------------------------------------------------------------
 # 2. 페르소나 및 시스템 프롬프트 정의
@@ -354,7 +357,7 @@ def release_lock(page_id: str):
 # 4. 핵심 AI 생성 로직
 # ---------------------------------------------------------------------------
 def select_safe_article_with_ai(scraped_titles: str, past_topics: str, target_category: str) -> dict:
-    """1단계 프리필터링: 대량의 기사 '제목' 후보 중 가장 타겟에 부합하고 과거 주제와 겹치지 않는 단 1개의 URL을 선정합니다."""
+    """1단계 프리필터링: 대량의 기사 '제목' 후보 중 가장 타겟에 부합하고 과거 주제와 겹치지 않는 Top 3 URL을 선정합니다."""
     logging.info(f"AI 데스크팅: 타겟 카테고리 [{target_category}]에 맞는 안전한 새 기사 판별 중 (Step 1)...")
     
     if not gemini_client:
@@ -366,11 +369,11 @@ def select_safe_article_with_ai(scraped_titles: str, past_topics: str, target_ca
 
 아래 <new_articles>는 오늘 새로 수집된 글로벌 소스들입니다.
 이 중에서 반드시 **[{target_category}]** 카테고리에 가장 완벽히 부합하면서도, 
-<past_topics>에 리스트업된 과거 금지 주제들과는 완전히 동떨어진 가장 신선하고 영감이 되는 기사 제목을 **단 하나만** 골라주세요.
+<past_topics>에 리스트업된 과거 금지 주제들과는 완전히 동떨어진 가장 신선하고 영감이 되는 최우선 순위 기사 제목을 **딱 3개(1순위, 2순위, 3순위)** 골라 배열 형태로 반환해주세요.
 
 **[절대 엄수 금지사항: 중복 회피]**
-<past_topics>에 리스트업된 키워드(예: '업사이클 푸드', '에코 푸드', '비건' 등)를 해당 외국어 원문으로 번역해보았을 때, <new_articles> 중 조금이라도 이와 비슷한 주제(예: Upcycled Food, Food waste 등)를 다루는 기사 제목이 있다면 **무조건 탈락**시키십시오.
-과거 주제와 단 1%라도 겹치는 기사를 고르기보다는, 차라리 타겟 카테고리에 조금 덜 맞더라도 완벽히 다른 신선한 소재의 푸드 브랜드/트렌드 기사를 1순위로 고르십시오.
+<past_topics>에 리스트업된 키워드(예: '업사이클 푸드', '에코 푸드', '비건' 등)를 해당 외국어 원문으로 번역해보았을 때, <new_articles_titles> 중 조금이라도 이와 비슷한 주제(예: Upcycled Food, Food waste 등)를 다루는 기사 제목이 있다면 **무조건 3개의 후보군에서 전부 탈락**시키십시오.
+과거 주제와 단 1%라도 겹치는 기사를 고르기보다는, 차라리 타겟 카테고리에 조금 덜 맞더라도 완벽히 다른 신선한 소재의 푸드 브랜드/트렌드 기사를 우선순위로 고르십시오.
 
 <past_topics>
 {past_topics}
@@ -380,7 +383,7 @@ def select_safe_article_with_ai(scraped_titles: str, past_topics: str, target_ca
 {scraped_titles}
 </new_articles_titles>
 
-선택한 단 하나의 기사에 대해 원문 제목(title), 원문 URL(source_url), 그리고 완벽하게 과거 중복을 피하고 새로운 트렌드를 제시했다는 선택 이유(reason)를 JSON으로 설명해주세요.
+선택한 3개의 기사 배열에 대해 각각 원문 제목(title), 원문 URL(source_url), 그리고 완벽하게 과거 중복을 피하고 새로운 트렌드를 제시했다는 선택 이유(reason)를 JSON으로 설명해주세요.
 """
     try:
         response = gemini_client.models.generate_content(
@@ -388,12 +391,14 @@ def select_safe_article_with_ai(scraped_titles: str, past_topics: str, target_ca
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
-                response_schema=SelectedSafeArticle,
+                response_schema=SelectedSafeArticles,
                 temperature=0.1
             )
         )
         res_dict = json.loads(response.text)
-        logging.info(f"AI 데스크팅 완료. 타겟 달성 기사 채택: [{res_dict.get('title')}] (이유: {res_dict.get('reason')})")
+        articles = res_dict.get('articles', [])
+        if articles:
+            logging.info(f"AI 데스크팅 완료. Top 3 후보 확보! (1순위: [{articles[0].get('title')}])")
         return res_dict
     except Exception as e:
         logging.error(f"AI 데스크팅 실패: {e}")
@@ -584,22 +589,37 @@ def run_engine() -> Dict[str, Any]:
         # 3. 글로벌 웰니스/라이프스타일 매거진 RSS에서 '기사 제목/URL 후보군' 최대 대량 스크래핑 (피드당 5개 제목수집)
         scraped_titles, source_links = scrape_premium_rss_feeds(limit_per_feed=5, exclude_urls=past_urls, target_category=target_category)
         
-        # 4. 1단계: AI 데스크팅 (30+ 후보 중 타겟 카테고리에 맞는 가장 안전한 단 1건의 기사 URL 선별)
-        selected_article_info = select_safe_article_with_ai(scraped_titles, past_topics_text, target_category)
-        target_url = selected_article_info.get("source_url")
-        target_title = selected_article_info.get("title")
+        # 4. 1단계: AI 데스크팅 (30+ 후보 중 타겟 카테고리에 맞는 가장 안전한 Top 3 기사 URL 배열 선별)
+        selected_articles_dict = select_safe_article_with_ai(scraped_titles, past_topics_text, target_category)
+        candidates = selected_articles_dict.get("articles", [])
         
-        if not target_url:
-            raise ValueError("AI 데스크팅 단계에서 유효한 유니크 기사 URL을 선정하지 못했습니다.")
+        if not candidates:
+            raise ValueError("AI 데스크팅 단계에서 유효한 기사 후보 3개를 선정하지 못했습니다.")
             
-        logging.info(f"선정된 단 1개의 URL 본문 파싱 시작: {target_url}")
+        logging.info(f"선별된 {len(candidates)}개의 기사 후보를 바탕으로 안전망(Fallback) 스크래핑 루프 시작...")
         
-        # 4.5. 선택된 단 1개의 기사만 BeautifulSoup을 이용해 깊게 본문 스크래핑
-        article_body = scrape_article_text(target_url)
-        if not article_body:
-            raise ValueError(f"선정된 기사 본문을 스크래핑하는 데 실패했습니다. ({target_url})")
+        final_selected_article_text = ""
+        target_title = ""
+        target_url = ""
+        
+        # 4.5. 선택된 Top 3 기사에 대해 순차적으로 본문 스크래핑 시도 (Fallback Loop)
+        for i, article in enumerate(candidates):
+            target_url = article.get("source_url")
+            target_title = article.get("title")
+            logging.info(f"[{i+1}순위] URL 본문 파싱 시도: {target_url}")
             
-        final_selected_article_text = f"---\n[Source: {target_url}]\n- 제목: {target_title}\n- 퓨어 본문 내용:\n{article_body}\n\n"
+            article_body = scrape_article_text(target_url)
+            
+            if article_body:
+                # 성공하면 루프 탈출
+                logging.info(f"[{i+1}순위] 기사 본문 스크래핑 성공! (길이: {len(article_body)}자)")
+                final_selected_article_text = f"---\n[Source: {target_url}]\n- 제목: {target_title}\n- 퓨어 본문 내용:\n{article_body}\n\n"
+                break
+            else:
+                logging.warning(f"[{i+1}순위] 기사 본문을 스크래핑하는 데 실패했습니다. (페이월 또는 봇 차단 의심) - 다음 순위로 조용히 넘어갑니다.")
+        
+        if not final_selected_article_text:
+            raise ValueError("모든 Top 3 후보 기사의 본문 스크래핑에 실패했습니다. (유료, 자바스크립트 등 차단 문제)")
         
         # 5. 2단계: AI 에디터 콘텐츠 본편 생성 (Search Grounding 적용)
         content = generate_editorial_content(
