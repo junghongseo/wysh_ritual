@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -82,7 +83,7 @@
             display: none;
             width: 20px;
             height: 20px;
-            border: 3px solid rgba(255,255,255,0.3);
+            border: 3px solid rgba(255, 255, 255, 0.3);
             border-radius: 50%;
             border-top-color: var(--wysh-white);
             animation: spin 1s ease-in-out infinite;
@@ -99,7 +100,9 @@
         }
 
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         #status-message {
@@ -110,7 +113,7 @@
             opacity: 0;
             transition: opacity 0.5s ease;
         }
-        
+
         #status-message.visible {
             opacity: 1;
         }
@@ -124,11 +127,13 @@
         }
     </style>
 </head>
+
 <body>
 
     <div class="container">
         <div class="logo">WYSH.</div>
-        <div class="subtitle">AI Ritual Editor Dashboard<br><span style="font-size: 0.8rem;">글로벌 19대 프리미엄 소스 스크래핑 & 웹 아티클 자동 생성</span></div>
+        <div class="subtitle">AI Ritual Editor Dashboard<br><span style="font-size: 0.8rem;">글로벌 푸드/영양 트렌드 및 핫한 브랜드 스크래핑
+                & 아티클 자동 생성</span></div>
 
         <button id="run-btn" class="btn">
             <span class="btn-text">AI 에디터 가동하기 🚀</span>
@@ -145,10 +150,10 @@
 
         // 로딩 시 표출될 메시지 배열
         const loadingMessages = [
-            "글로벌 19대 웰니스 매거진 RSS 통신 연결 중...",
-            "최신 아티클 원문 파싱 및 수집 중 (약 34건)...",
+            "글로벌 푸드/영양 매거진 및 트렌드 뉴스 통신 연결 중...",
+            "최신 아티클 원문 파싱 및 수집 중...",
             "노션 과거 발행 이력 조회 중...",
-            "Gemini 2.5 Pro 호출: 인사이트 추출 및 구글 서치 그라운딩 팩트체크...",
+            "Gemini 호출: 핫한 푸드 브랜드 발굴 및 구글 팩트체크 진행 중...",
             "카톡 초안, 마이크로 아티클(캐러셀), 웹 아티클 포맷팅 중...",
             "거의 다 되었습니다. 노션 대시보드 적재 중..."
         ];
@@ -160,7 +165,7 @@
             btn.classList.add('loading');
             btn.disabled = true;
             statusMsg.className = 'visible';
-            
+
             // 상태 메시지 로테이션 애니메이션
             let msgIndex = 0;
             statusMsg.textContent = loadingMessages[0];
@@ -203,4 +208,5 @@
         });
     </script>
 </body>
+
 </html>
