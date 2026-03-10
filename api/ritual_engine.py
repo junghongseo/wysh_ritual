@@ -60,6 +60,13 @@ class SelectedSafeArticle(BaseModel):
 class SelectedSafeArticles(BaseModel):
     articles: List[SelectedSafeArticle] = Field(description="가장 훌륭한 최우선 순위 기사 3개 (1순위, 2순위, 3순위 순서대로 배열)")
 
+class ResearchQueries(BaseModel):
+    queries: List[str] = Field(description="심층 조사를 바탕으로 정보를 수집하기 위해 실행할 구체적인 3~5개의 검색어 목록")
+
+class ReviewFeedback(BaseModel):
+    is_approved: bool = Field(description="에디터 기준점(단일 로컬 집중, 팩트 기반, 깊이 등) 통과 여부")
+    feedback_reason: str = Field(description="반려 시 구체적으로 어느 부분이 피상적인지, 어떻게 수정해야 하는지 지적하는 코멘트. 통과 시에는 가벼운 코멘트.")
+
 # ---------------------------------------------------------------------------
 # 2. 페르소나 및 시스템 프롬프트 정의
 # ---------------------------------------------------------------------------
@@ -69,7 +76,7 @@ SYSTEM_PROMPT = """
 
 [Persona & Tone]
 - 당신의 핵심 독자는 트렌드에 극도로 민감하고 글로벌 웰니스 라이프스타일을 빠르게 흡수하고자 하는 '2030 여성'입니다.
-- 이들은 거대 담론보다 뉴욕, LA, 도쿄, 서울, 파리, 런던 등 전 세계 최고 핫한 도시에서 막 터지기 시작한 Z세대의 마이크로 푸드 문화, 로컬 팝업 스토어, 혁신 스타트업의 사례를 가장 흥미로워합니다.
+- 이들은 거대 담론보다 글로벌 핫한 도시 중 하나(예: 뉴욕, 런던, 도쿄 등)의 '특정 로컬 씬'에서 막 터지기 시작한 Z세대의 뾰족하고 작은 마이크로 트렌드, 로컬 혁신 스타트업 및 브랜드 사례를 한 곳에 깊이 딥다이브하는 것을 가장 흥미로워합니다. 여러 국가의 사례를 중구난방으로 나열하는 것을 매우 싫어합니다.
 - 친근하고 부드러운 정보 전달: 주요 어미는 반드시 "~해요.", "~요."를 사용하십시오. 너무 딱딱하거나 학술적인 문체는 배제하고 세련된 매거진 톤을 유지하십시오.
 - '다이어트' 대신 '신체 최적화/퍼포먼스 지향/자기 관리' 같은 전문 용어를 사용하되, 비유를 들어 아주 매끄럽게 설명하십시오.
 
@@ -83,15 +90,13 @@ SYSTEM_PROMPT = """
 - 직접적인 제품 홍보, 할인 안내, 저렴한 마케팅 문구를 절대 금지합니다.
 - 광고 모델 같은 인위적인 미소, 스톡 이미지 느낌을 철저히 배제합니다.
 - 뻔한 건강 정보는 버리고, 가장 앞서가는(Cutting-edge) 웰니스 인사이트만 선별하십시오.
-- **[매우 중요] 단일 주제 집중 (Single Theme Focus)**: 제공된 3개의 트렌드 소스 기사 내용들을 기계적으로 조립하거나 병렬적으로 엮어내지 마십시오. 전혀 연관성 없는 트렌드들(예: 맞춤형 영양제와 얼리케어, 식물성 대체육 등)을 한 글에 구겨 넣으면 글의 일관성이 완전히 무너집니다. **소스 기사들 중에서 가장 매력적이고 강력한 단 1개의 현상/트렌드만 선택**하십시오. 나머지 소스는 과감히 버리고, 오직 선택한 1개의 소재에만 100% 집중하여 기둥이 되는 하나의 스토리를 만드십시오.
+- **[매우 중요] 단일 도시 및 단일 주제 집중 (Single Theme & Single City Focus)**: 여러 트렌드나 여러 글로벌 도시(뉴욕, 런던, 서울, 도쿄 등)의 사례를 백화점식으로 한 글에 구겨 넣지 마십시오. 글의 몰입도가 완전히 무너집니다. 오직 '특정 도시 하나'에서 일어나고 있는 '하나의 작고 뾰족한 식음료 트렌드'에만 100% 집중하여 엣지있는 스토리를 만드십시오. 한 아티클에는 작은 트렌드 하나만 소개해야 사람들이 기억에 남습니다.
 - **[매우 중요] 논리적 연결성 (No Clickbait)**: 카카오톡 프리뷰(Teaser)에서 제기한 단 하나의 질문이나 후킹용 소재를, 웹 아티클 본문 서두에서 반드시 가장 먼저, 상세히 논리적으로 설명하며 해소해야 합니다.
   - **[절대 금지 사항]**: 단, 웹 아티클 본문 안에 "카카오톡 티저에서 언급했듯이", "앞서 카톡에서"와 같이 **'카카오톡', '티저', '프리뷰'**라는 단어를 직접적으로 언급하는 메타 발언(Meta-reference)을 절대 금지합니다. (독자가 웹 검색을 통해 바로 아티클로 들어왔다고 가정하고 자연스럽고 완성도 있게 글을 시작하십시오.)
-- **[출처 인용 (Source Citation)]**: 제공된 소스 기사 본문에 연구 기관, 논문, 대학교, 전문가 이름, 저널, 특정 통계 등의 출처가 언급되어 있다면, 당신이 작성하는 웹 아티클 본문에서도 그 출처를 매우 자연스럽고 지적이게 언급하여 아티클의 신뢰도와 권위를 높이십시오.
+- **[출처 인용 (Source Citation)]**: 제공된 소스 기사 및 구글 검색 정보에 있는 연구 기관, 논문, 대학교, 전문가 이름, 매장명, 브랜드명 등의 출처를 가장 자연스럽고 지적이게 언급하여 아티클의 신뢰도를 높이십시오.
 - **[매우 중요] 철저한 팩트 체크 및 근거 필수 (Anti-Hallucination)**: 
-  아래 제공되는 <trend_data> 소스 기사에 **명시적으로, 실제로 존재하는 트렌드라고 적혀 있는 팩트(Fact)**만 사용하십시오. 
-  예를 들어, 소스가 단순한 '도시 관광 추천'이나 '명상 일반론' 기사일 때, 이 둘을 자의적으로 결합하여 없는 트렌드를 지어내거나(Fabrication) 포장하는 행위를 절대 엄금합니다. 
-  특정 도시가 원문에 명확하게 언급되지 않았다면, 그 트렌드를 임의의 도시와 억지로 엮어내지 마십시오. 세대, 성별 혹은 글로벌 차원의 넓은 관점에서 서술하십시오.
-  반드시 소스 기사나 구글 검색에서 "이러한 현상이 실제 트렌드로 자리잡고 있다"는 구체적인 근거가 있을 때만 해당 내용을 작성하십시오.
+  철저히 실제 기사나 팩트 체크가 완료된 소스에 기반하여 작성해야 합니다.
+  실제로 존재하는 브랜드, 실제 일어나는 현상(Fact)만 사용하십시오. 일반론을 자의적으로 특정 푸드 트렌드와 결합하여 거짓된 유행을 부풀려 글을 짓는 환각(Fabrication) 행위를 절대 엄금합니다. 정보가 없다면 과도하게 포장하지 마십시오.
 - **[실천을 위한 팁 (Actionable Tips)]**: 단순히 지식과 트렌드를 전달하는 데 그치지 마십시오. 독자가 글을 다 읽은 내일 아침, 당장 자기 방에서 혹은 식탁에서 무엇을 어떻게 시도해 볼 수 있는지, 비용이 들지 않는 작고 구체적이며 현실적인(Actionable) 행동 지침을 포함하십시오.
 - **[요즘 핫한 푸드 브랜드 및 제품 추천 (Brand Discovery)]**: **[매우 중요]** 트렌드 설명에만 그치지 말고, 해당 트렌드를 리드하고 있는 **실제 글로벌/로컬의 핫한 푸드 브랜드, 혁신적인 스타트업, 또는 구체적인 제품 사례**를 구글 검색을 통해 적극적으로 발굴하여 기사 본문에 자연스럽게 녹여내십시오. (예: 특정 슈퍼푸드를 활용해 돌풍을 일으킨 스낵 브랜드, 새로운 대체 당을 개발한 푸드테크 기업, Z세대가 열광하는 비건 음료 등)
 
@@ -399,36 +404,154 @@ def select_safe_article_with_ai(scraped_titles: str, past_topics: str, target_ca
         logging.error(f"AI 데스크팅 실패: {e}")
         return {}
 
-def search_and_draft_article(selected_title: str, selected_url: str, target_category: str) -> str:
-    """구글 검색 그라운딩을 활용하여 최신 트렌드를 조사하고 초안을 작성합니다."""
+def generate_research_queries(selected_title: str, selected_url: str, target_category: str) -> List[str]:
+    """초기 주제를 바탕으로 구글 검색을 깊게 파고들기 위한 검색어들을 생성합니다."""
     client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+    prompt = f"""
+    당신은 웰니스 라이프스타일 매거진의 수석 트렌드 리서처입니다.
+    이번 타겟 카테고리 [{target_category}] 안에서 다음 기사를 깊이 있게 파헤치려고 합니다.
+    기사 제목: {selected_title}
+    기사 URL: {selected_url}
     
-    prompt = f"""당신은 트렌디한 2030 여성을 타겟으로 하는 프리미엄 라이프스타일 매거진 에디터입니다.
-    아래 선정된 웰니스/푸드 트렌드 기사에 대해 [Google Search] 툴을 적극 활용하여 최신 정보와 영감을 자유롭게 조사하십시오.
-    
-    [선별된 베이스 기사]
-    제목: {selected_title}
-    출처 URL: {selected_url}
-    초점 카테고리: {target_category}
-    
-    [지시사항]
-    1. 검색 엔진을 통해 해당 기사 혹은 연관된 최신 트렌드를 매우 방대하게 리서치하세요.
-    2. 가장 중요하게 봐야 할 것은 다음과 같습니다: 뉴욕, LA, 런던, 파리, 싱가포르, 도쿄, 서울 등의 최전선(Cultural Hubs)에서 이 현상이 어떻게 소비되고 있는지 구체적인 사례(Z세대 문화, 실제 존재하는 스타트업/브랜드 제품, 힙스터들의 반응)를 반드시 최소 1~2개 이상 구글링으로 발굴하십시오.
-    3. 수집된 정보를 바탕으로 매거진 아티클 "초안(Draft)"을 작성하세요. 추상적인 담론을 넘어 '어떤 글로벌 도시에서 어떤 브랜드가 이런 혁신을 이끌고 있는지' 눈에 그려지듯 상세하게 서술해야 2030 여성들의 흥미를 유발할 수 있습니다.
-    4. 초안의 마지막 부분에는 2030 여성 독자가 이 힙한 트렌드를 자신의 일상으로 작게나마 가져와볼 수 있도록 하는 실용적인 가이드(Actionable Tips)를 포함하십시오.
-    5. 당신이 구글링으로 찾아낸 실제 출처 링크(URL)나 브랜드 홈페이지들을 이 초안 마지막에 참고자료 목록으로 꼭 적어두세요.
+    이 기사 내용에서 영감을 받아, 가장 핫한 "단 하나의 글로벌 도시"에서 일어나고 있는 "구체적인 식음료 브랜드/제품/마이크로 트렌드"를 발굴하기 위한 구체적인 구글 검색어(Search Query) 3~5개를 작성해주세요. 
+    너무 일반적인 검색어(예: "글로벌 웰니스 트렌드") 대신 구체적인 브랜드 이름, 지역명, 현상(예: "런던 무알코올 음료 De Soi Z세대 후기", "도쿄 수마도리 바 메뉴 가격") 등을 포함한 뾰족한 검색어여야 합니다.
     """
-    
-    # Gemini 2.5 flash 호출 (구글 검색 Grounding 활성화)
-    response = client.models.generate_content(
-        model='gemini-2.5-flash',
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            temperature=0.7,
-            tools=[types.Tool(google_search=types.GoogleSearch())]
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=ResearchQueries,
+                temperature=0.7
+            )
         )
+        res_dict = json.loads(response.text)
+        return res_dict.get("queries", [])
+    except Exception as e:
+        logging.error(f"검색어 생성 실패: {e}")
+        return [f"{selected_title} local food trend brands"]
+
+def execute_deep_research(queries: List[str]) -> str:
+    """생성된 검색어 리스트를 순회하며 사실(Fact)을 취합하여 Fact Sheet를 만듭니다."""
+    client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+    fact_sheet = "### [Deep Research Fact Sheet] ###\n"
+    
+    for idx, query in enumerate(queries):
+        logging.info(f"-> 심층 리서치 쿼리 실행 중 ({idx+1}/{len(queries)}): {query}")
+        prompt = f"""
+        당신은 빈틈없는 리서처입니다. "{query}"에 대해 구글 검색을 수행하고, 실제 존재하는 장소, 브랜드, 매장 이름, 창립자, 메뉴 특징, 소비자 반응 등의 '팩트(Facts)' 파편들을 꼼꼼하게 수집해 주세요.
+        여러 도시에 대한 얕은 정보보다는, 특정 도시 하나에서 발견되는 깊이 있는 디테일을 원합니다.
+        """
+        try:
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.3,
+                    tools=[types.Tool(google_search=types.GoogleSearch())]
+                )
+            )
+            fact_sheet += f"\n[Query: {query}]\n{response.text}\n"
+        except Exception as e:
+            logging.error(f"리서치 쿼리 실패 ({query}): {e}")
+            continue
+            
+    return fact_sheet
+
+def draft_deep_dive_article(fact_sheet: str, selected_title: str) -> str:
+    """Fact Sheet를 바탕으로 단 하나의 로컬 씬에 딥다이브하는 초안을 작성합니다."""
+    client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+    prompt = f"""
+    당신은 2030 여성을 타겟으로 하는 프리미엄 라이프스타일 매거진 에디터입니다.
+    아래 [Fact Sheet]는 여러 번의 구글 심층 리서치를 통해 수집된 팩트들입니다.
+    이 정보만을 재료로 삼아, 독자를 몰입시킬 수 있는 흥미로운 아티클 초안을 거침없이 작성하십시오.
+    
+    [핵심 제약사항]
+    1. **단일 도시 및 단일 주제 딥다이브**: 여러 지역의 사례를 번갈아 나열하지 마십시오. 오직 '특정 도시 단 한 곳'의 씬이나 '특정 브랜드 단 하나'에만 집중해서 돋보기로 들여다보듯 아주 깊게 파고드는 스토리텔링을 보여주어야 합니다. 뉴욕 얘기하다가 런던 얘기로 넘어가는 식의 전개는 최악입니다.
+    2. 피상적인 현상 나열 금지: 메뉴판의 세부 사항, 매장의 분위기, 창업자의 철학 등 구체적이고 디테일한 요소(Fact)를 글에 반드시 포함하여 리얼리티를 극대화하십시오.
+    3. 없는 내용 지어내기(Hallucination) 절대 금지: Fact Sheet에 없는 브랜드나 현상을 억지로 꾸며내지 마십시오.
+    4. 실용적인 가이드: 글의 마지막에 독자가 일상에서 이 리추얼을 실천해볼 수 있는 구체적인 행동 가이드를 넣으세요.
+    5. 출처 링크 기재: 글 마지막에 본문에 활용한 실제 브랜드 공식 홈페이지나 기사 레퍼런스 URL들을 명확히 나열하세요.
+    
+    [시작 영감이 되었던 기사 제목]
+    {selected_title}
+    
+    [Fact Sheet]
+    {fact_sheet}
+    """
+    response = client.models.generate_content(
+        model='gemini-2.5-pro',
+        contents=prompt,
+        config=types.GenerateContentConfig(temperature=0.7)
     )
     return response.text
+
+def review_and_revise_draft(draft: str, fact_sheet: str) -> str:
+    """작성된 초안을 자체 검수하고 반려 시 재작성하는 Loop를 실행합니다."""
+    client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+    current_draft = draft
+    
+    for iteration in range(2): # 최대 2번만 재검수 (원본 1번 + 수정 최대 2번 = 총 3번)
+        logging.info(f"-> 에디터 자체 검수 진행 중 (Iteration {iteration+1})...")
+        eval_prompt = f"""
+        당신은 Wysh 매거진의 매우 깐깐한 수석 편집장입니다. 아래 [아티클 초안]을 평가하여 출판 승인 여부를 결정하십시오.
+        
+        [평가 기준]
+        1. 단일 지역 집중 (Very Strict): 뉴욕, 런던, 도쿄 등 2개 이상의 글로벌 도시 사례가 피상적으로 섞여 있지 않고, 단일 지역의 구체적인 로컬 씬에 깊게 파고들었는가?
+        2. 구체성 및 팩트 (Very Strict): 뜬구름 잡는 소리가 아니라 명확한 매장 이름, 브랜드명, 사람 이름, 제품 특징 등이 리얼리티를 부여하는가?
+        
+        조금이라도 다양한 도시를 "수박 겉핥기" 식으로 나열했다면 100% 반려(is_approved=false)해야 합니다.
+        어디를 어떻게 고쳐 한 지역에 뾰족하게 파고들어야 할지 `feedback_reason`에 날카롭게 지적하세요. 완벽하다면 true를 반환하세요.
+        
+        [아티클 초안]
+        {current_draft}
+        """
+        try:
+            eval_response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=eval_prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=ReviewFeedback,
+                    temperature=0.2
+                )
+            )
+            feedback = json.loads(eval_response.text)
+            
+            if feedback.get("is_approved"):
+                logging.info("=> 초안 검수 완벽히 통과!")
+                return current_draft
+            else:
+                reason = feedback.get("feedback_reason", "기준 미달")
+                logging.warning(f"=> 초안 반려: {reason}")
+                
+                # 피드백을 바탕으로 재작성
+                logging.info("=> AI 작가 재작성 지시 중...")
+                revision_prompt = f"""
+                당신의 지난 초안이 수석 편집장에게 반려되었습니다.
+                [반려 사유]: {reason}
+                
+                위의 편집장 지적 사항을 "완벽하게" 반영하여 새로운 초안을 다시 작성하십시오. 
+                여러 도시의 사례가 섞여있다면 과감히 삭제하고, 오직 한 도시에만 돋보기를 들이대세요.
+                
+                [Fact Sheet]:
+                {fact_sheet}
+                
+                [반려된 기존 초안]:
+                {current_draft}
+                """
+                rev_response = client.models.generate_content(
+                    model='gemini-2.5-pro',
+                    contents=revision_prompt,
+                    config=types.GenerateContentConfig(temperature=0.7)
+                )
+                current_draft = rev_response.text
+        except Exception as e:
+            logging.error(f"리뷰/재작성 루프 중 에러 발생 (그대로 진행): {e}")
+            break
+            
+    return current_draft
 
 def format_editorial_content(draft_text: str, source_url: str, brand_identity: str, sample_article: str) -> Dict[str, Any]:
     """초안을 완벽한 JSON 형식으로 포맷팅합니다 (Search Grounding 비활성화, Structured Output 활성화)"""
@@ -470,70 +593,7 @@ def format_editorial_content(draft_text: str, source_url: str, brand_identity: s
         logging.error(f"Raw response: {response.text}")
         raise ValueError("AI가 반환한 결과물이 올바른 JSON 형식이 아닙니다.")
 
-def generate_editorial_content(trend_data: str, brand_identity: str, sample_article: str, target_category: str) -> Dict[str, str]:
-    """검색 데이터, 로컬 컨텍스트를 종합하여 에디토리얼을 생성합니다. (과거 금지어 프롬프트 제거)"""
-    logging.info("AI 에디터 콘텐츠 생성 시작 (Step 2 - Google Search Grounding)...")
-    
-    if not gemini_client:
-        raise ValueError("Gemini API Key가 설정되지 않았습니다.")
-
-    user_prompt = f"""
-[Brand Identity & Constraints]
-{brand_identity}
-
-이번 위시 리추얼의 핵심 타겟 영감 카테고리는 **[{target_category}]** 입니다.
-이 렌즈를 통해 아래 기사들을 분석하고 서술하십시오.
-
-[Sample References]
-{sample_article}
-
----
-[Step 1. 영감의 원천 (Premium Global Sources)]
-다음은 북미, 유럽(프랑스, 스웨덴, 독일), 아시아(일본, 한국) 등 글로벌 각국에서 현지 언어로 수집된 최신 기사 본문입니다.
-(프랑스어, 일본어 등의 언어는 영어/한국어로 자동 해석하여 이해하십시오)
-
-<trend_data>
-{trend_data}
-</trend_data>
-
-[Step 2. 팩트체크 및 트렌드 결합 (Google Search Grounding)]
-위 세계 다국적 기사에서 영감을 얻어, **당신의 구글 검색(Search Grounding) 능력을 즉시 가동하여**, 해당 주제가 현재 글로벌 피트니스/웰니스 씬에서 실제로 어떻게 발현되고 있는지 구체적인 팩트(실제 명소, 스튜디오, 현지 커뮤니티 현상 등)를 직접 검색하고 검증하십시오.
-- **[핵심 미션: 핫한 푸드 브랜드 소개]**: 트렌드 설명과 함께, **이 트렌드를 주도하거나 관련하여 현재 가장 핫한 글로벌/로컬 푸드 브랜드, 혁신적인 식음료 제품, 미식 스타트업의 실제 사례를 구글 검색을 통해 적극적으로 발굴하고 소개하십시오.** 이 브랜드가 어떤 철학과 제품으로 트렌드를 이끌고 있는지 구체적으로 언급하여 트렌드의 실체감을 높이십시오.
-- 구글 검색을 통해 각 국가의 문화적 특수성이 반영된 통찰력 있는 사례를 찾아 보완하십시오. (예: 일본의 온천/수면 문화, 프랑스의 미식 웰니스, 스웨덴의 자연 친화적 리추얼 등 파생 검색)
-- [매우 중요] 만일 기사 원문이나 검색 결과가 특정 도시(예: 런던, 코펜하겐 등)에 국한된 내용이 아니라면, 억지로 특정 로컬 도시 이름을 언급하여 환각(Fabrication) 트렌드를 만들어내지 마십시오. 대신 '글로벌 하이엔드 웰니스 씬', '밀레니얼/Z세대 피트니스 문화' 등 넓고 지적인 관점으로 서술하십시오.
-- 프리미엄 소스의 철학적 인사이트와 구글 검색으로 확인된 실제 푸드 브랜드/제품 사례를 매끄럽게 결합하여 최고의 미식/웰니스 아티클을 작성하십시오.
-
-이 모든 정보와 검색결과를 바탕으로, 위시 리추얼 채널에 발행할 3가지 포맷(kakao_teaser, web_article, visual_prompt)과, 당신이 실제로 활용한 최고급 소스+구글검색 URL들을 reference_links 필드에 정리하여 생성하십시오.
-"""
-
-    response = gemini_client.models.generate_content(
-        model="gemini-2.5-pro",
-        contents=user_prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
-            tools=[{"google_search": {}}],  # Google Search Grounding 기능 활성화
-            temperature=0.7,
-        )
-    )
-    
-    # 순수 JSON 처리
-    cleaned_res = response.text.strip()
-    if cleaned_res.startswith("```json"):
-        cleaned_res = cleaned_res[7:]
-    if cleaned_res.startswith("```"):
-        cleaned_res = cleaned_res[3:]
-    if cleaned_res.endswith("```"):
-        cleaned_res = cleaned_res[:-3]
-    cleaned_res = cleaned_res.strip()
-    
-    try:
-        result_dict = json.loads(cleaned_res)
-    except json.JSONDecodeError:
-        logging.error(f"JSON 파싱 실패: {response.text}")
-        raise ValueError("Gemini API가 유효한 JSON을 반환하지 않았습니다.")
-        
-    logging.info("에디토리얼 콘텐츠 생성 완료.")
-    return result_dict
+# (unused legacy function generate_editorial_content removed to clean code)
 
 
 def validate_link(url: str) -> bool:
@@ -682,23 +742,37 @@ def run_engine() -> Dict[str, Any]:
             
         logging.info(f"선별된 {len(candidates)}개의 기사 후보를 바탕으로 안전망(Fallback) 리서치 루프 시작...")
         
-        # 5. Fallback Search Grounding 루프
+        # 5. Fallback Search Grounding 루프 -> Deep Research Agentic Pipeline으로 교체!
         draft_text = ""
         final_url = ""
         for index, article in enumerate(candidates):
             try:
                 article_title = article.get("title", "")
                 article_url = article.get("source_url", "")
-                logging.info(f"[{index+1}순위] 기사 구글 리서치 시도 중: {article_title}")
-                draft_text = search_and_draft_article(article_title, article_url, target_category)
-                if draft_text and len(draft_text) > 200:
+                logging.info(f"[{index+1}순위] 기사 심층 리서치 파이프라인 시작: {article_title}")
+                
+                # 5-1. 검색어 생성
+                queries = generate_research_queries(article_title, article_url, target_category)
+                if not queries:
+                    queries = [f"{article_title} F&B trend brand"]
+                    
+                # 5-2. Fact Sheet 수집 (Deep Research Iterate)
+                fact_sheet = execute_deep_research(queries)
+                
+                # 5-3. 초안 작성 (Writer)
+                logging.info("=> Fact Sheet 기반 심층 초안 작성 중...")
+                draft_text = draft_deep_dive_article(fact_sheet, article_title)
+                
+                if draft_text and len(draft_text) > 300:
+                    # 5-4. 에디터 검수 및 재작성 루프 (Editor Self-Reflection)
+                    draft_text = review_and_revise_draft(draft_text, fact_sheet)
                     final_url = article_url
-                    logging.info("=> 구글 리서치 및 초안 작성 성공!")
+                    logging.info("=> 파이프라인 완료! 압도적 깊이의 초안 확보.")
                     break
                 else:
-                    logging.warning(f"=> 반환된 초안 길이 부족. 다음 순위로 이동합니다.")
+                    logging.warning(f"=> 초안 생성 실패 또는 길이 부족. 다음 순위로 이동합니다.")
             except Exception as e:
-                logging.warning(f"=> 리서치 실패 ({article.get('title')}): {str(e)}\n=> 즉시 다음 순위 후보 기사를 시도합니다.")
+                logging.warning(f"=> 파이프라인 오류 ({article.get('title')}): {str(e)}\n=> 즉시 다음 순위 후보 기사를 시도합니다.")
         
         if not draft_text or len(draft_text) < 200:
             raise ValueError(f"모든 기사 후보({len(candidates)}개)의 리서치 및 초안 획득에 실패했습니다.")
