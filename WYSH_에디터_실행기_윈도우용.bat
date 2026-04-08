@@ -33,7 +33,11 @@ IF NOT EXIST ".venv\Scripts\activate.bat" (
 )
 
 :: Run the script
-python ritual_engine.py
+if exist "ritual_engine.py" (
+    python ritual_engine.py
+) else (
+    python api\ritual_engine.py
+)
 
 echo.
 echo ==================================================
