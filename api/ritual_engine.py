@@ -321,9 +321,7 @@ def acquire_lock() -> tuple[str, str]:
                     ]
                 },
                 "상태": {
-                    "multi_select": [
-                        {"name": "AI 작성 완료"}
-                    ]
+                    "select": {"name": "AI 작성 완료"}
                 }
             }
         )
@@ -680,9 +678,7 @@ def upload_to_notion(content_dict: Dict[str, Any], topic_title: str):
                     }
                 },
                 "상태": {
-                    "multi_select": [
-                        {"name": "AI 작성 완료"}
-                    ]
+                    "select": {"name": "AI 작성 완료"}
                 },
                 "카톡 초안": {
                     "rich_text": chunk_text(content_dict.get("kakao_teaser", ""))
