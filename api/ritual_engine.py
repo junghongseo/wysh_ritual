@@ -46,7 +46,7 @@ class EditorialContent(BaseModel):
     hooking_title: str = Field(description="사람들을 후킹할 수 있는 매력적이고 짧은 제목 (예: '결정 피로 시대의 가장 우아한 해답')")
     kakao_teaser: str = Field(description="카카오톡 프리뷰용 텍스트. 독자의 호기심을 유발하며, 마지막 문장에는 **오늘 내 삶에 당장 적용해볼 수 있는 구체적이고 가벼운 실천 팁(Actionable Tip)** 한 줄을 반드시 포함할 것.")
     insta_carousel: str = Field(description="인스타그램 카드뉴스용 텍스트. 총 4~8장의 슬라이드로 구성하며, [Slide 1] [Slide 2] 처럼 명시할 것. **[매우 중요] 각 슬라이드의 제목(Headline)은 절대로 영어를 쓰지 말고, '내 몸의 데이터가 식단을 결정한다'와 같이 도발적이고 세련된 한글 잡지(Magazine) 카피 스타일로만 작성할 것.** 아티클의 깊이 있는 내용을 충분히 담을 수 있도록, 각 슬라이드는 타이틀 외에 본문 텍스트가 최대 100자 내외(띄어쓰기 제외)가 되도록 풍성하고 구체적으로 작성할 것. 너무 짧은 단답형 문장을 지양하고, 반드시 한국어로 작성하며, **마지막 슬라이드에는 독자가 스스로 일상에서 어떻게 이 리추얼을 시도할 수 있는지 구체적인 실천 가이드(How to apply)**를 제안할 것.")
-    web_article: str = Field(description="본문 아티클 (마크다운 포맷). 글로벌 트렌드를 깊이 있게 분석한 후, 글의 후반부에 독자가 자신의 일상 속에서 이 리추얼을 직접 시도하고 적용해 볼 수 있는 '구체적인 일상 실천 가이드(Actionable Tips)' 챕터를 자연스럽게 포함하여 작성할 것.")
+    web_article: str = Field(description="본문 아티클 (마크다운 포맷). 글로벌 트렌드를 깊이 있게 분석한 후, 마무리에는 '구체적인 일상 실천 가이드' 챕터를 포함할 것. **[매우 중요] 글이 절대로 중간에 뚝 끊기지 않도록, 반드시 완벽하게 끝맺어지는 완전한 문장으로 마무리(Conclusion)를 확실히 지으십시오. 전체 글자수는 1000자~1500자 사이로 풍성하게 작성합니다.**")
     editor_note: str = Field(description="AI 에디터의 기획 의도, 선택한 소스에 대한 팩트체크 및 작성 논리를 설명하는 노트")
     reference_links: List[ReferenceLink] = Field(description="실제로 아티클 작성에 활용된 참고 소스 링크 및 활용 코멘트 목록")
     visual_prompt: str = Field(description="미드저니 등 이미지 생성을 위한 영문 프롬프트 (영어). 2030 트렌드세터 여성들이 열광하는 감성적인 '핀터레스트(Pinterest-core)' 및 인스타그램 피드 스타일. 인위적인 화보가 아닌, 자연스럽고 코지한 무드의 일상 필름 사진 느낌(35mm film photography, subtle grain, warm natural sunlight, candid lifestyle snapshot, warm and muted aesthetic, highly aesthetic, effortless chic)을 강조할 것. 반드시 프롬프트 맨 마지막에 가로:세로 3과 2의 비율을 나타내는 '--ar 3:2' 파라미터를 포함할 것.")
